@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mr. Lube + Tires Staff Scheduler</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:#f0f4f8;color:#333;}
+.hdr{background:#1F3864;color:#fff;padding:13px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+.hdr h1{font-size:17px;font-weight:bold;}
+.hdr p{font-size:11px;opacity:.75;margin-top:2px;}
+.flash{background:rgba(255,255,255,.2);border-radius:6px;padding:6px 14px;font-size:12px;display:none;max-width:320px;}
+.save-status{font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;}
+.tabs{display:flex;gap:5px;padding:11px 16px;background:#e8eef5;flex-wrap:wrap;}
+.tb{padding:7px 14px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold;background:white;color:#555;box-shadow:0 1px 3px rgba(0,0,0,.12);}
+.tb.on{background:#2E74B5;color:white;box-shadow:0 2px 8px rgba(46,116,181,.35);}
+.pnl{display:none;padding:14px 16px;}
+.pnl.on{display:block;}
+.card{background:white;border-radius:10px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:12px;}
+.ct{font-weight:bold;color:#1F3864;font-size:14px;margin-bottom:10px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{background:#1F3864;color:white;padding:7px 9px;text-align:left;font-weight:bold;white-space:nowrap;}
+td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:middle;}
+tr:nth-child(even) td{background:#f8fafc;}
+input[type=text],input[type=number],select{padding:5px 8px;border:1px solid #ccc;border-radius:5px;font-size:13px;color:#0000CC;}
+.btn{border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:bold;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+.bp{background:#1F3864;color:white;}
+.bb{background:#2E74B5;color:white;}
+.bg{background:#375623;color:white;}
+.bo{background:#8B4000;color:white;}
+.btn:disabled{background:#aaa;cursor:not-allowed;}
+.blg{padding:12px 24px;font-size:15px;width:100%;justify-content:center;margin-top:6px;}
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px;}
+.sb{background:#f0f4f8;border-radius:8px;padding:10px 12px;}
+.sl{font-size:11px;color:#666;margin-bottom:2px;}
+.sv{font-size:18px;font-weight:bold;}
+.wbox{background:#FFF2CC;border:1px solid #E8A020;border-radius:8px;padding:9px 12px;margin-bottom:10px;}
+.wbox strong{display:block;font-size:13px;color:#7F4000;margin-bottom:2px;}
+.wbox p{font-size:12px;color:#7F4000;}
+.ebox{background:#FFE0E0;border:1px solid #C00;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:13px;color:#900;}
+.ibox{background:#E0F0FF;border:1px solid #2E74B5;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:12px;color:#1F3864;}
+.sh{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:bold;}
+.bwarn{background:#FFF2CC;color:#7F4000;}
+.bok{background:#E2EFDA;color:#375623;}
+.bred{background:#FFE0E0;color:#C00;}
+.bkey{background:#EDE0F5;color:#5B0080;}
+.bft{background:#D6E4F7;color:#1F3864;}
+.bpt{background:#F0E6FF;color:#5B0080;}
+/* Shift cells */
+.sam{text-align:center;font-size:10px;padding:3px 2px;font-weight:bold;color:#1F3864;background:#D6E4F7;}
+.spm{text-align:center;font-size:10px;padding:3px 2px;font-weight:bold;color:#375623;background:#E2EFDA;}
+.smid{text-align:center;font-size:10px;padding:3px 2px;font-weight:bold;color:#5B0080;background:#EDE0F5;}
+.soff{text-align:center;font-size:10px;padding:3px 2px;color:#bbb;background:#fafafa;}
+.shol{text-align:center;font-size:10px;padding:3px 2px;color:#7F4000;background:#FFF2CC;}
+.sclosed{text-align:center;font-size:10px;padding:3px 2px;color:#999;background:#f0f0f0;font-style:italic;}
+.sout{background:#eee;color:#ccc;text-align:center;font-size:10px;padding:3px 2px;}
+.ox{overflow-x:auto;}
+.rc{background:#f8fafc;border-radius:8px;padding:13px;border-top:3px solid;}
+.rc h3{font-size:13px;margin-bottom:7px;}
+.rc ul{padding-left:16px;}
+.rc li{font-size:12px;color:#444;margin-bottom:4px;}
+.rg{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:14px;}
+.revg{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;}
+.rr{display:flex;align-items:center;gap:6px;}
+.rr label{width:100px;font-size:13px;color:#555;flex-shrink:0;}
+.hint{font-size:11px;color:#777;background:#f8f8f8;padding:7px 10px;border-radius:5px;margin-top:8px;line-height:1.55;}
+.fn{font-size:11px;color:#888;margin-top:11px;line-height:1.6;}
+/* Toggle buttons */
+.kyes{background:#375623;color:white;border:none;border-radius:5px;padding:3px 9px;font-size:12px;font-weight:bold;cursor:pointer;}
+.kno{background:#ddd;color:#555;border:none;border-radius:5px;padding:3px 9px;font-size:12px;font-weight:bold;cursor:pointer;}
+.ftbtn{background:#2E74B5;color:white;border:none;border-radius:5px;padding:3px 9px;font-size:12px;font-weight:bold;cursor:pointer;}
+.ptbtn{background:#8B5CF6;color:white;border:none;border-radius:5px;padding:3px 9px;font-size:12px;font-weight:bold;cursor:pointer;}
+.flxbtn{background:#047857;color:white;border:none;border-radius:5px;padding:3px 9px;font-size:12px;font-weight:bold;cursor:pointer;}
+.flxno{background:#ddd;color:#555;border:none;border-radius:5px;padding:3px 9px;font-size:12px;font-weight:bold;cursor:pointer;}
+.na-row td{opacity:.35;}
+/* Legend */
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;margin-top:10px;align-items:center;}
+.ld{width:12px;height:12px;border-radius:3px;display:inline-block;vertical-align:middle;}
+/* Time Off Calendar */
+.to-emp-row{border-bottom:1px solid #eee;padding:10px 0;}
+.to-emp-name{font-weight:bold;font-size:13px;color:#1F3864;margin-bottom:6px;}
+.to-cal{display:flex;flex-wrap:wrap;gap:4px;}
+.to-day{width:36px;height:36px;border:1px solid #ddd;border-radius:5px;font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;background:white;color:#444;font-weight:bold;transition:.1s;}
+.to-day:hover{border-color:#2E74B5;}
+.to-day.off{background:#FBBF24;border-color:#D97706;color:white;}
+.to-day.closed{background:#f0f0f0;color:#bbb;cursor:default;}
+.to-day span{font-size:9px;font-weight:normal;color:inherit;opacity:.8;}
+/* Min hours warning in preview */
+.minhrs-warn{font-size:10px;color:#900;font-style:italic;}
+.minhrs-ok{font-size:10px;color:#375623;}
+/* Chat tab */
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 160px);min-height:400px;}
+.chat-history{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;background:#f8fafc;border-radius:10px;border:1px solid #e0e8f0;margin-bottom:10px;}
+.chat-msg{display:flex;gap:10px;align-items:flex-start;max-width:92%;}
+.chat-msg.user{align-self:flex-end;flex-direction:row-reverse;}
+.chat-bubble{padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.55;white-space:pre-wrap;}
+.chat-msg.user .chat-bubble{background:#2E74B5;color:white;border-bottom-right-radius:3px;}
+.chat-msg.ai .chat-bubble{background:white;color:#333;border:1px solid #e0e8f0;border-bottom-left-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.chat-msg.ai .chat-avatar{width:28px;height:28px;border-radius:50%;background:#6D28D9;color:white;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.chat-msg.user .chat-avatar{width:28px;height:28px;border-radius:50%;background:#2E74B5;color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;flex-shrink:0;}
+.chat-msg.system .chat-bubble{background:#f0f4f8;color:#666;font-size:12px;font-style:italic;text-align:center;width:100%;border-radius:8px;}
+.chat-msg.system{max-width:100%;}
+.chat-input-row{display:flex;gap:8px;align-items:flex-end;}
+.chat-input-row textarea{flex:1;padding:10px 13px;border:2px solid #ccc;border-radius:10px;font-size:13px;font-family:Arial,sans-serif;resize:none;min-height:44px;max-height:120px;line-height:1.4;transition:border-color .15s;}
+.chat-input-row textarea:focus{outline:none;border-color:#6D28D9;}
+.chat-send{background:#6D28D9;color:white;border:none;border-radius:10px;padding:11px 18px;font-size:13px;font-weight:bold;cursor:pointer;white-space:nowrap;height:44px;}
+.chat-send:disabled{background:#aaa;cursor:not-allowed;}
+.chat-suggestions{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.chat-sug{background:white;border:1px solid #c4b5fd;color:#6D28D9;border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;transition:.1s;}
+.chat-sug:hover{background:#f5f0ff;border-color:#6D28D9;}
+.typing-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#999;animation:tdot 1.2s infinite;}
+.typing-dot:nth-child(2){animation-delay:.2s;}
+.typing-dot:nth-child(3){animation-delay:.4s;}
+@keyframes tdot{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
+.ec{cursor:pointer;position:relative;transition:outline .08s;}
+.ec:hover{outline:2px solid #2E74B5;outline-offset:-1px;z-index:1;}
+.ec:hover::after{content:'✎';position:absolute;top:1px;right:2px;font-size:8px;color:#2E74B5;opacity:.8;}
+/* Edit modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:900;}
+.modal{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:white;border-radius:12px;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.25);
+  z-index:901;min-width:300px;max-width:360px;width:90vw;}
+.modal h3{color:#1F3864;font-size:14px;margin-bottom:4px;}
+.modal .sub{font-size:11px;color:#888;margin-bottom:14px;}
+.modal label{display:block;font-size:12px;color:#555;margin-bottom:3px;margin-top:10px;}
+.modal input[type=time]{width:100%;padding:7px 10px;font-size:15px;border:1px solid #ccc;
+  border-radius:6px;color:#0000CC;font-weight:bold;}
+.modal-hrs{font-size:13px;font-weight:bold;margin-top:8px;text-align:center;padding:6px;
+  background:#f0f4f8;border-radius:6px;}
+.modal-warn{font-size:11px;color:#C00;margin-top:6px;padding:5px 8px;background:#FFE0E0;border-radius:5px;display:none;}
+.modal-btns{display:flex;gap:8px;margin-top:14px;}
+.modal-btns .btn{flex:1;justify-content:center;padding:9px;}
+.manual-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:#E8A020;
+  vertical-align:middle;margin-left:2px;title:'Manually edited';}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <h1>🔧 Mr. Lube + Tires Staff Scheduler</h1>
+    <p>Saskatchewan Employment Act Compliant · Keyholder Enforced · Auto-saves your data</p>
+  </div>
+  <div style="text-align:right;">
+    <div class="flash" id="flash"></div>
+    <div class="save-status" id="save-status">Loading saved data…</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tb on"  onclick="showTab('setup')">⚙ Setup</button>
+  <button class="tb" onclick="showTab('timeoff')">📆 Time Off</button>
+  <button class="tb" onclick="showTab('generate')">📅 Generate</button>
+  <button class="tb" onclick="showTab('preview')">📋 Preview</button>
+  <button class="tb" onclick="showTab('rules')">⚖ SK Rules</button>
+  <button class="tb" onclick="showTab('chat')" style="background:#6D28D9;color:white;">💬 Ask AI</button>
+</div>
+
+<!-- ══ SETUP ══ -->
+<div class="pnl on" id="pnl-setup">
+  <div class="card">
+    <div class="ct">⚙ Budget Rate</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:13px;">Labor budget as % of last year's monthly revenue:</span>
+      <input type="number" id="budget-rate" value="25" min="1" max="100"
+        style="width:65px;font-size:15px;font-weight:bold;border:2px solid #2E74B5;padding:5px 8px;"
+        oninput="document.getElementById('rate-lbl').textContent=this.value+'%';saveAll();">
+      <span id="rate-lbl" style="font-weight:bold;color:#2E74B5;font-size:15px;">25%</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct">👥 Employee Roster</div>
+    <div class="ox">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Name</th><th>Role</th><th>$/hr</th>
+          <th style="text-align:center;">FT / PT</th>
+          <th style="text-align:center;">Flex Tech?</th>
+          <th style="text-align:center;">Keyholder?</th>
+        </tr></thead>
+        <tbody id="emp-tbody"></tbody>
+      </table>
+    </div>
+    <div class="hint">
+      <strong>FT (Full-Time)</strong> = min 32 hrs/week · <strong>PT (Part-Time)</strong> = min 16 hrs/week.<br>
+      <strong>Flex Tech</strong> = employee can work as <em>either</em> Upper Tech or Lower Tech — the scheduler uses them to fill whichever role has a gap that day.<br>
+      <strong>Keyholder</strong> = can open or close the store alone. Scheduler places a keyholder at every open &amp; close.<br>
+      <strong>Blank name or NA</strong> = slot is inactive and will not be scheduled.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct">💰 Last Year's Monthly Revenue</div>
+    <div class="revg" id="rev-grid"></div>
+  </div>
+
+  <div style="font-size:12px;color:#888;margin-top:4px;">💾 All changes save automatically to your browser.</div>
+</div>
+
+<!-- ══ TIME OFF ══ -->
+<div class="pnl" id="pnl-timeoff">
+  <div class="card">
+    <div class="ct">📆 Employee Time-Off Requests</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
+      <div>
+        <label style="display:block;font-size:12px;color:#666;margin-bottom:3px;">Show calendar for month:</label>
+        <select id="to-month" onchange="renderTimeOff()"
+          style="padding:7px 10px;font-size:13px;font-weight:bold;border:2px solid #2E74B5;color:#0000CC;border-radius:7px;"></select>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#666;margin-bottom:3px;">Year</label>
+        <input type="number" id="to-year" value="2026" onchange="renderTimeOff()"
+          style="padding:7px 10px;font-size:13px;font-weight:bold;border:2px solid #2E74B5;color:#0000CC;border-radius:7px;width:88px;">
+      </div>
+      <button class="btn" style="background:#dc3545;color:white;" onclick="clearMonthTimeOff()">× Clear Month</button>
+    </div>
+    <div class="ibox">Click a day cell to mark/unmark a time-off request for that employee. 🟡 Yellow = day off requested. Grey = shop closed (Christmas, New Year's). The scheduler will work around all marked days.</div>
+    <div id="to-grid"></div>
+  </div>
+</div>
+
+<!-- ══ GENERATE ══ -->
+<div class="pnl" id="pnl-generate">
+  <div class="card">
+    <div class="ct" style="font-size:15px;">Select Month &amp; Year → Click Generate</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end;">
+      <div>
+        <label style="display:block;font-size:12px;color:#666;margin-bottom:3px;">Month</label>
+        <select id="sel-month" onchange="syncTimeOffMonth();updateStats()"
+          style="padding:8px 12px;font-size:14px;font-weight:bold;border:2px solid #2E74B5;color:#0000CC;border-radius:8px;"></select>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#666;margin-bottom:3px;">Year</label>
+        <input type="number" id="sel-year" value="2026" onchange="syncTimeOffMonth();updateStats()"
+          style="padding:8px 12px;font-size:14px;font-weight:bold;border:2px solid #2E74B5;color:#0000CC;border-radius:8px;width:90px;">
+      </div>
+    </div>
+    <div class="sg" id="stat-grid"></div>
+    <div id="hol-notice"></div>
+    <div id="gen-warns"></div>
+    <button class="btn bp blg" id="gen-btn" onclick="runGenerate()">▶ Generate Schedule</button>
+    <div class="fn">
+      The scheduler: assigns exact shift times for every calendar day · April 1 2026 = Wednesday ✓ ·
+      <strong>keyholder at every open &amp; close</strong> · <strong>2+ employees at open &amp; close</strong> ·
+      <strong>respects all time-off requests</strong> · stat holidays = 9am–5pm · Christmas &amp; New Year's = CLOSED ·
+      FT min 32 hrs / PT min 16 hrs per week · SK Employment Act compliant.
+    </div>
+  </div>
+</div>
+
+<!-- ══ PREVIEW ══ -->
+<div class="pnl" id="pnl-preview">
+  <div id="prev-empty" class="card" style="text-align:center;padding:40px;color:#888;">
+    Go to Generate and click Generate to build your schedule.
+  </div>
+  <div id="prev-content" style="display:none;">
+    <div class="card">
+      <div class="sh">
+        <div id="prev-title" style="font-weight:bold;color:#1F3864;font-size:15px;"></div>
+        <div id="prev-stats" style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px;"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn bb" onclick="downloadExcel()">⬇ Excel</button>
+          <button class="btn bo" onclick="printSchedule()">🖨 Finalize &amp; Print</button>
+        </div>
+      </div>
+      <div class="legend">
+        <span style="color:#666;font-weight:bold;">Shifts:</span>
+        <span><span class="ld" style="background:#D6E4F7;"></span> AM (opener)</span>
+        <span><span class="ld" style="background:#E2EFDA;"></span> PM (closer)</span>
+        <span><span class="ld" style="background:#EDE0F5;"></span> MID (peak)</span>
+        <span><span class="ld" style="background:#FFF2CC;"></span> Holiday</span>
+        <span><span class="ld" style="background:#f0f0f0;"></span> Closed</span>
+        <span style="color:#5B0080;font-weight:bold;">🔑 = Keyholder</span>
+      </div>
+    </div>
+    <div id="weekly-grids"></div>
+  </div>
+</div>
+
+<!-- ══ SK RULES ══ -->
+<div class="pnl" id="pnl-rules">
+  <div class="card">
+    <div class="ct" style="font-size:15px;">⚖ Saskatchewan Employment Act — Overtime Rules</div>
+    <div class="rg">
+      <div class="rc" style="border-color:#2E74B5;"><h3 style="color:#2E74B5;">Daily Overtime</h3><ul>
+        <li>Triggers after <strong>&gt;8 hrs</strong> in a standard 8-hr day</li>
+        <li>"Day" = calendar day or 24 consecutive hrs from shift start</li>
+        <li>Maximum 16 hrs in any 24-hr period</li>
+        <li>Minimum 8 consecutive hrs rest between shifts</li>
+      </ul></div>
+      <div class="rc" style="border-color:#2E74B5;"><h3 style="color:#2E74B5;">Weekly Overtime</h3><ul>
+        <li>Regular week: OT after <strong>40 hours</strong></li>
+        <li>Holiday week: OT after <strong>32 hours</strong></li>
+        <li>Employee receives <strong>GREATER</strong> of daily or weekly OT</li>
+        <li>OT rate: minimum <strong>1.5× hourly wage</strong></li>
+      </ul></div>
+      <div class="rc" style="border-color:#E8A020;"><h3 style="color:#E8A020;">Employee Rights</h3><ul>
+        <li>Consent required for &gt;44 hrs/week</li>
+        <li>24 consecutive hrs off every 7 days (20+ hrs/wk employees)</li>
+        <li>Schedule notice: at least 1 week in advance</li>
+        <li>Reporting-for-duty pay: min 3 hrs even for short shifts</li>
+      </ul></div>
+      <div class="rc" style="border-color:#375623;"><h3 style="color:#375623;">How This Scheduler Complies</h3><ul>
+        <li>All shifts exactly 8 hrs → daily OT never triggered</li>
+        <li>FT: max 5 shifts = 40 hrs regular; 4 = 32 hrs holiday week</li>
+        <li>PT: max 2 shifts per week by default (16 hrs)</li>
+        <li>2+ days off/week → 24 consecutive hrs off guaranteed</li>
+        <li><strong>ZERO scheduled overtime</strong></li>
+      </ul></div>
+    </div>
+    <div style="background:#f0f4f8;border-radius:8px;padding:12px;font-size:11px;color:#555;line-height:1.7;">
+      <strong>SK Public Holidays (9am–5pm hours, except where noted):</strong><br>
+      New Year's Day (Jan 1) <em>CLOSED</em> · Family Day (3rd Mon Feb) · Good Friday · Victoria Day (Mon ≤ May 24) ·
+      Canada Day (Jul 1) · Saskatchewan Day (1st Mon Aug) · Labour Day (1st Mon Sep) · Thanksgiving (2nd Mon Oct) ·
+      Remembrance Day (Nov 11) · Christmas Day (Dec 25) <em>CLOSED</em> · Boxing Day (Dec 26)<br>
+      <strong>Source:</strong> <a href="https://www.saskatchewan.ca/business/employment-standards/overtime" target="_blank" style="color:#2E74B5;">saskatchewan.ca/business/employment-standards/overtime</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CHAT ══ -->
+<div class="pnl" id="pnl-chat">
+  <div class="card" style="padding:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div>
+        <div style="font-weight:bold;color:#6D28D9;font-size:15px;">💬 Ask AI about your schedule</div>
+        <div style="font-size:11px;color:#888;margin-top:2px;">Powered by Claude · Knows your employees, schedule, budget &amp; SK labor rules</div>
+      </div>
+      <button class="btn" style="background:#eee;color:#555;padding:6px 12px;font-size:12px;" onclick="clearChat()">Clear chat</button>
+    </div>
+    <div class="chat-suggestions" id="chat-suggestions">
+      <span style="font-size:11px;color:#888;align-self:center;">Try asking:</span>
+      <button class="chat-sug" onclick="sendSuggestion(this)">Why does an employee have low hours this week?</button>
+      <button class="chat-sug" onclick="sendSuggestion(this)">Which days have coverage gaps?</button>
+      <button class="chat-sug" onclick="sendSuggestion(this)">Who are my keyholders and when do they work?</button>
+      <button class="chat-sug" onclick="sendSuggestion(this)">Am I over or under budget this month?</button>
+      <button class="chat-sug" onclick="sendSuggestion(this)">Explain SK overtime rules for my team</button>
+      <button class="chat-sug" onclick="sendSuggestion(this)">Which employees are full-time vs part-time?</button>
+    </div>
+    <div class="chat-wrap">
+      <div class="chat-history" id="chat-history">
+        <div class="chat-msg system">
+          <div class="chat-bubble">Hi! I have full context about your Mr. Lube + Tires schedule, employees, budget, and Saskatchewan labor rules. Ask me anything.</div>
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <textarea id="chat-input" placeholder="Ask a question about the schedule, employees, coverage, overtime rules…" rows="1"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"
+          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+        <button class="chat-send" id="chat-send-btn" onclick="sendChat()">Send ↑</button>
+      </div>
+      <div style="font-size:10px;color:#bbb;margin-top:6px;text-align:center;">Enter to send · Shift+Enter for new line · Responses are AI-generated — always verify important decisions</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EDIT SHIFT MODAL ══ -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal()"></div>
+<div class="modal" id="edit-modal">
+  <h3 id="modal-emp">Edit Shift</h3>
+  <div class="sub" id="modal-date"></div>
+  <div id="modal-hol-note" style="display:none;font-size:11px;color:#7F4000;background:#FFF2CC;padding:5px 8px;border-radius:5px;margin-bottom:4px;"></div>
+  <label>Start Time</label>
+  <input type="time" id="modal-start" step="900" oninput="updateModalHrs()">
+  <label>End Time</label>
+  <input type="time" id="modal-end" step="900" oninput="updateModalHrs()">
+  <div class="modal-hrs" id="modal-hrs">— hrs</div>
+  <div class="modal-warn" id="modal-warn"></div>
+  <div class="modal-btns">
+    <button class="btn bp" onclick="saveCell()">✓ Save Shift</button>
+    <button class="btn" id="modal-remove-btn" style="background:#dc3545;color:white;" onclick="clearCell()">✕ Remove</button>
+    <button class="btn" style="background:#888;color:white;" onclick="closeModal()">Cancel</button>
+  </div>
+  <div style="font-size:10px;color:#aaa;margin-top:10px;text-align:center;">
+    Hours, cost &amp; OT status update automatically after saving
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ════════════════════════════════════════════════════════════════
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const ROLES = ["Manager","Supervisor","Upper Tech","Lower Tech"];
+// Regular shop hours by day-of-week index (0=Mon, 6=Sun)
+const SHOP = {0:{o:8,c:19},1:{o:8,c:19},2:{o:8,c:19},3:{o:8,c:19},4:{o:8,c:19},5:{o:8,c:18},6:{o:9,c:17}};
+const LS_KEY = 'ql_v3';
+
+// ════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════
+let employees = [
+  {id:1,name:"Employee 1",role:"Manager",   rate:22.00,keyholder:true, empType:'FT',flex:false},
+  {id:2,name:"Employee 2",role:"Supervisor",rate:20.00,keyholder:true, empType:'FT',flex:false},
+  {id:3,name:"Employee 3",role:"Supervisor",rate:19.00,keyholder:false,empType:'FT',flex:false},
+  {id:4,name:"Employee 4",role:"Upper Tech", rate:18.00,keyholder:false,empType:'FT',flex:false},
+  {id:5,name:"Employee 5",role:"Upper Tech", rate:17.50,keyholder:false,empType:'FT',flex:false},
+  {id:6,name:"Employee 6",role:"Upper Tech", rate:17.00,keyholder:false,empType:'FT',flex:false},
+  {id:7,name:"Employee 7",role:"Upper Tech", rate:16.50,keyholder:false,empType:'FT',flex:false},
+  {id:8,name:"Employee 8",role:"Lower Tech", rate:15.50,keyholder:false,empType:'PT',flex:false},
+  {id:9,name:"",          role:"Lower Tech", rate:15.00,keyholder:false,empType:'PT',flex:false},
+];
+let revenues = {
+  January:42000,February:38000,March:45000,April:52000,
+  May:58000,June:65000,July:68000,August:67000,
+  September:60000,October:55000,November:48000,December:40000
+};
+// timeOff[empId] = Set of date strings "YYYY-MM-DD"
+let timeOff = {};
+let schedule = null;
+
+// ════════════════════════════════════════════════════════════════
+// LOCALSTORAGE  — auto-save & load
+// ════════════════════════════════════════════════════════════════
+function saveAll() {
+  try {
+    const data = {
+      employees: employees.map(e=>({...e})),
+      revenues: {...revenues},
+      budgetRate: parseFloat(document.getElementById('budget-rate').value)||25,
+      timeOff: Object.fromEntries(
+        Object.entries(timeOff).map(([k,v])=>[k,[...v]])
+      )
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+    document.getElementById('save-status').textContent = '💾 Saved ' + new Date().toLocaleTimeString();
+  } catch(e) {
+    document.getElementById('save-status').textContent = '⚠ Auto-save unavailable';
+  }
+}
+
+function loadAll() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) { document.getElementById('save-status').textContent = 'No saved data — using defaults'; return; }
+    const d = JSON.parse(raw);
+    if (d.employees && d.employees.length > 0) employees = d.employees.map(e=>({...e}));
+    if (d.revenues) revenues = {...d.revenues};
+    if (d.budgetRate) {
+      document.getElementById('budget-rate').value = d.budgetRate;
+      document.getElementById('rate-lbl').textContent = d.budgetRate + '%';
+    }
+    if (d.timeOff) {
+      timeOff = {};
+      Object.entries(d.timeOff).forEach(([k,v])=> timeOff[k] = new Set(v));
+    }
+    document.getElementById('save-status').textContent = '💾 Data loaded from last session';
+  } catch(e) {
+    document.getElementById('save-status').textContent = '⚠ Could not load saved data';
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════════
+const dk  = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const dow = d => (d.getDay()+6)%7; // 0=Mon 6=Sun
+const fhS = h => (h>12?h-12:h===0?12:h)+(h>=12?'p':'a');
+
+function isActive(emp) {
+  const n = (emp.name||'').trim().toUpperCase();
+  return n !== '' && n !== 'NA' && n !== 'N/A' && n !== 'N.A' && n !== 'N.A.';
+}
+const actEmps = () => employees.filter(isActive);
+
+// Flex-aware role helpers
+// canFillLower: true for Lower Techs AND Upper Techs with flex toggle on
+const canFillLower = e => e.role === 'Lower Tech' || (e.flex && e.role === 'Upper Tech');
+// canFillUpper: true for Upper Techs AND Lower Techs with flex toggle on
+const canFillUpper = e => e.role === 'Upper Tech' || (e.flex && e.role === 'Lower Tech');
+
+function getEaster(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,
+        f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),
+        h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,
+        l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+        mo=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;
+  return new Date(y,mo-1,day);
+}
+function nthWD(y,mo,wd,n){
+  let c=0; const d=new Date(y,mo-1,1);
+  while(d.getMonth()===mo-1){if(d.getDay()===wd){c++;if(c===n)return new Date(d);}d.setDate(d.getDate()+1);}
+  return null;
+}
+
+// All SK stat holidays for the year
+function getSKHols(y){
+  const h=new Set(),add=d=>d&&h.add(dk(d));
+  add(new Date(y,0,1));                              // New Year's Day
+  add(nthWD(y,2,1,3));                               // Family Day
+  const e=getEaster(y),gf=new Date(e); gf.setDate(e.getDate()-2); add(gf); // Good Friday
+  const v=new Date(y,4,24); while(v.getDay()!==1)v.setDate(v.getDate()-1); add(v); // Victoria Day
+  const c=new Date(y,6,1); if(c.getDay()===0)c.setDate(2); add(c);         // Canada Day
+  add(nthWD(y,8,1,1)); add(nthWD(y,9,1,1)); add(nthWD(y,10,1,2));          // SK Day, Labour, Thanksgiving
+  add(new Date(y,10,11));                            // Remembrance Day
+  add(new Date(y,11,25)); add(new Date(y,11,26));    // Christmas, Boxing Day
+  return h;
+}
+
+// Days the shop is CLOSED (no employees scheduled)
+function getClosedDays(y){
+  return new Set([`${y}-12-25`, `${y}-01-01`]);
+}
+
+// Shop hours for a specific date (null = closed)
+function shopHours(di, date, hols, closed){
+  if (closed.has(dk(date))) return null;        // closed
+  if (hols.has(dk(date))) return {o:9,c:17};    // stat holiday: 9am–5pm (8-hr day)
+  return SHOP[di];                               // regular hours
+}
+
+// Whether a day is "8-hr only" (no AM/PM split possible)
+function is8Hr(sh){ return sh && (sh.c - sh.o) <= 8; }
+
+function getWeeks(y,mo){
+  const first=new Date(y,mo-1,1),last=new Date(y,mo,0);
+  const start=new Date(first); start.setDate(first.getDate()-dow(first));
+  const weeks=[]; let cur=new Date(start);
+  while(cur<=last){
+    const wk=[]; for(let d=0;d<7;d++){wk.push(new Date(cur));cur.setDate(cur.getDate()+1);}
+    if(wk.some(d=>d.getMonth()===mo-1)) weeks.push(wk);
+  }
+  return weeks;
+}
+
+function shiftTimes(di, type, sh){
+  if (!sh) return {s:8,e:16};
+  const dur = sh.c - sh.o;
+  if (dur <= 8 || type === 'AM') return {s:sh.o, e:sh.o+8};
+  if (type === 'PM') return {s:sh.c-8, e:sh.c};
+  return {s:Math.max(sh.o,9), e:Math.min(sh.c,17)};  // MID
+}
+
+// ════════════════════════════════════════════════════════════════
+// DAY-OFF ROTATION  (respects FT/PT targets)
+// ════════════════════════════════════════════════════════════════
+function computeDayOff(emps, wi, maxShifts, inMonthDOWs){
+  // FT → target = maxShifts (5 regular / 4 holiday) → nOff = 2 or 3
+  // PT → target = 2 shifts min → nOff = 5
+  // inMonthDOWs: DOW indices (0=Mon..6=Sun) of days that are IN this month
+  // KEY: assign off-days to out-of-month days first so partial weeks get max coverage
+  const off = {};
+  const outOfMonth = [0,1,2,3,4,5,6].filter(d => !inMonthDOWs.includes(d));
+
+  emps.forEach((emp, i) => {
+    const target = emp.empType==='PT' ? 2 : maxShifts;
+    const nOff   = 7 - target;
+    const days   = new Set();
+    let remaining = nOff;
+
+    // Step 1: fill off-days from out-of-month days first (covers partial-week case)
+    if (outOfMonth.length > 0) {
+      const start = (i * 2 + wi) % outOfMonth.length;
+      for (let j = 0; j < outOfMonth.length && remaining > 0; j++) {
+        days.add(outOfMonth[(start + j) % outOfMonth.length]);
+        remaining--;
+      }
+    }
+
+    // Step 2: if more off-days still needed, rotate through all 7 days
+    if (remaining > 0) {
+      const s = (i*3 + wi*2) % 7;
+      for (let d = 0; d < 7 && remaining > 0; d++) {
+        const day = (s + d) % 7;
+        if (!days.has(day)) { days.add(day); remaining--; }
+      }
+    }
+
+    off[emp.id] = [...days];
+  });
+
+  // Validate coverage minimums every day using flex-aware role groups
+  const mgrs     = emps.filter(e=>['Manager','Supervisor'].includes(e.role));
+  const flexUp   = emps.filter(canFillUpper);   // Upper Techs + flex Lower Techs
+  const flexLow  = emps.filter(canFillLower);   // Lower Techs + flex Upper Techs
+  const khs      = emps.filter(e=>e.keyholder);
+
+  const ensure = (group, min, day) => {
+    let avail = group.filter(e=>!(off[e.id]||[]).includes(day));
+    while (avail.length < min) {
+      const fix = [...group].sort((a,b)=>(off[b.id]||[]).length-(off[a.id]||[]).length)
+                             .find(e=>(off[e.id]||[]).includes(day));
+      if (!fix) break;
+      off[fix.id] = off[fix.id].filter(x=>x!==day);
+      avail = group.filter(e=>!(off[e.id]||[]).includes(day));
+    }
+  };
+
+  for (let day=0; day<7; day++) {
+    if (mgrs.length    > 0) ensure(mgrs,   1, day);
+    if (flexUp.length  > 0) ensure(flexUp, Math.min(2, flexUp.length), day);
+    if (flexLow.length > 0) ensure(flexLow, 1, day);   // ALWAYS need a lower-capable tech
+    if (khs.length     > 0) ensure(khs,    1, day);
+  }
+  return off;
+}
+
+// ════════════════════════════════════════════════════════════════
+// MAIN SCHEDULER
+// ════════════════════════════════════════════════════════════════
+function buildSchedule(year, month, budget){
+  const emps   = actEmps();
+  const weeks  = getWeeks(year, month);
+  const hols   = getSKHols(year);
+  const closed = getClosedDays(year);
+  const asgn   = {}; employees.forEach(e=>asgn[e.id]={});
+  const wBudget = budget / weeks.length;
+  const wkResults = [];
+
+  weeks.forEach((week, wi) => {
+    const inMo = week.filter(d=>d.getMonth()===month-1);
+    const hasHolWeek = inMo.some(d=>hols.has(dk(d)));
+    const maxHrs   = hasHolWeek ? 32 : 40;
+    const maxShifts = maxHrs / 8;
+
+    // DOW indices (0=Mon..6=Sun) of schedulable in-month days
+    // Used by computeDayOff to prefer assigning off-days out-of-month for partial weeks
+    const inMonthDOWs = inMo.filter(d=>!closed.has(dk(d))).map(d=>dow(d));
+    const daysAvail   = inMonthDOWs.length; // schedulable days in this month-portion
+
+    const wHrs = {}; emps.forEach(e=>wHrs[e.id]=0);
+    const dayOff = computeDayOff(emps, wi, maxShifts, inMonthDOWs);
+    let budUsed = 0;
+
+    week.forEach((date, di) => {
+      if (date.getMonth() !== month-1) return;
+      const key  = dk(date);
+      const sh   = shopHours(di, date, hols, closed);
+      if (!sh) return; // shop is closed this day
+
+      const isHol = hols.has(key);
+      const day8  = is8Hr(sh); // true for holidays (9-5) and Sundays
+
+      // Time-off check
+      const hasTO = emp => !!(timeOff[emp.id] && timeOff[emp.id].has(key));
+
+      const canWork = emp =>
+        !(dayOff[emp.id]||[]).includes(di) &&
+        wHrs[emp.id]+8 <= maxHrs &&
+        !asgn[emp.id][key] &&
+        !hasTO(emp);
+
+      const assign = (emp, type) => {
+        const t = day8 ? 'AM' : type;        // 8-hr days = AM only
+        const {s,e} = shiftTimes(di, t, sh);
+        asgn[emp.id][key] = {s,e,hrs:8,type:t,isHol,keyholder:emp.keyholder,
+          label:fhS(s)+'-'+fhS(e), cost:emp.rate*8};
+        wHrs[emp.id]+=8; budUsed+=emp.rate*8;
+      };
+
+      const avail    = () => emps.filter(canWork);
+      const amW      = () => emps.filter(e=>asgn[e.id][key]?.type==='AM');
+      const pmW      = () => emps.filter(e=>asgn[e.id][key]?.type==='PM');
+      const allW     = () => emps.filter(e=>asgn[e.id][key]);
+      const amHasKH  = () => emps.some(e=>e.keyholder&&asgn[e.id][key]?.type==='AM');
+      const pmHasKH  = () => emps.some(e=>e.keyholder&&asgn[e.id][key]?.type==='PM');
+
+      if (day8) {
+        // ── 8-HOUR DAY (holiday or Sunday): all AM, need ≥2 + 1 keyholder + 1 lower-capable ──
+        // 1. Keyholder on AM
+        const kh = avail().filter(e=>e.keyholder);
+        if (kh.length>0) assign(kh[0],'AM');
+        // 2. Second employee (min 2 at open=close)
+        if (amW().length<2){
+          const p=avail().sort((a,b)=>{const r=x=>x.role==='Manager'?0:x.role==='Supervisor'?1:canFillUpper(x)?2:3;return r(a)-r(b);})[0];
+          if(p) assign(p,'AM');
+        }
+        // 3. REQUIRED: ensure a lower-capable tech is on shift
+        if(!amW().some(canFillLower)){
+          const l=avail().find(canFillLower);
+          if(l) assign(l,'AM');
+        }
+        // 4. Role gaps: Mgr/Sup
+        if(!amW().some(e=>['Manager','Supervisor'].includes(e.role))){const m=avail().find(e=>['Manager','Supervisor'].includes(e.role));if(m)assign(m,'AM');}
+        // 5. Upper Tech coverage
+        if(!amW().some(canFillUpper)){const u=avail().find(canFillUpper);if(u)assign(u,'AM');}
+        // 6. Budget peak
+        const ut3=avail().find(canFillUpper);
+        if(ut3&&budUsed+ut3.rate*8<=wBudget*1.05)assign(ut3,'AM');
+      } else {
+        // ── LONG DAY: AM openers + PM closers ──
+        // Phase 1: AM keyholder (opener)
+        if(!amHasKH()){const kh=avail().filter(e=>e.keyholder);if(kh.length>0)assign(kh[0],'AM');}
+        // Phase 2: 2nd AM employee (min 2 at open) — prefer role coverage
+        if(amW().length<2){
+          const p=avail().sort((a,b)=>{const r=x=>x.role==='Manager'?0:x.role==='Supervisor'?1:canFillUpper(x)?2:3;return r(a)-r(b);})[0];
+          if(p)assign(p,'AM');
+        }
+        // Phase 3: REQUIRED Lower-capable tech on AM (Lower Tech or flex Upper Tech)
+        if(!allW().some(canFillLower)){
+          const lt=avail().find(canFillLower);
+          if(lt)assign(lt,'AM');
+        }
+        // Phase 4: PM keyholder (closer)
+        if(!pmHasKH()){const kh=avail().filter(e=>e.keyholder);if(kh.length>0)assign(kh[0],'PM');}
+        // Phase 5: 2nd PM employee (min 2 at close)
+        if(pmW().length<2){const ut=avail().find(canFillUpper);const any=avail()[0];if(ut||any)assign(ut||any,'PM');}
+        // Phase 6: Role coverage — Mgr/Sup
+        if(!allW().some(e=>['Manager','Supervisor'].includes(e.role))){const m=avail().find(e=>['Manager','Supervisor'].includes(e.role));if(m)assign(m,'AM');}
+        // Phase 7: Ensure 2 upper-capable techs on shift total
+        let utC=allW().filter(canFillUpper).length;
+        while(utC<2){const ut=avail().find(canFillUpper);if(!ut)break;assign(ut,amW().length<=pmW().length?'AM':'PM');utC++;}
+        // Phase 8: Ensure lower-capable tech still covered (second check after all phases)
+        if(!allW().some(canFillLower)){const l=avail().find(canFillLower);if(l)assign(l,'AM');}
+        // Phase 9: Peak coverage (3rd upper-capable on MID)
+        const ut3=avail().find(canFillUpper);
+        if(ut3&&budUsed+ut3.rate*8<=wBudget*1.05)assign(ut3,'MID');
+      }
+    });
+
+    // ── FT/PT minimum hours check — prorated for partial weeks ──
+    // If only 3 of 7 days are in this month, FT min is 32 × 3/7 ≈ 14 hrs (2 shifts)
+    // This prevents false "below minimum" warnings on month-edge weeks
+    const minHrsFactor = daysAvail >= 7 ? 1 : daysAvail / 7;
+    const empOT={};
+    const minWarn={};
+    emps.forEach(emp=>{
+      const weeklyOT=Math.max(0,wHrs[emp.id]-maxHrs);
+      empOT[emp.id]={total:weeklyOT,wkHrs:wHrs[emp.id]};
+      const fullMinH = emp.empType==='FT' ? 32 : 16;
+      // Prorate: round down to nearest 8-hr shift worth
+      const proratedMin = Math.max(8, Math.floor(fullMinH * minHrsFactor / 8) * 8);
+      if(wHrs[emp.id]<proratedMin) minWarn[emp.id]={min:proratedMin,got:wHrs[emp.id],partial:daysAvail<7};
+    });
+
+    wkResults.push({week,wi,wHrs:{...wHrs},budUsed,wBudget,hasHol:hasHolWeek,maxHrs,empOT,minWarn,daysAvail});
+  });
+
+  return {asgn,weeks,wkResults,hols,closed,year,month,budget,emps};
+}
+
+// ════════════════════════════════════════════════════════════════
+// PRINT SCHEDULE  (clean, no budget/rates)
+// ════════════════════════════════════════════════════════════════
+function printSchedule(){
+  if(!schedule){alert('Generate a schedule first.');return;}
+  const{asgn,weeks,wkResults,hols,closed,year,month,emps}=schedule;
+  const moName=MONTHS[month-1];
+
+  let html=`<!DOCTYPE html><html><head>
+  <title>${moName} ${year} Work Schedule</title>
+  <style>
+  @page{size:landscape;margin:.8cm 1cm;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Arial,sans-serif;font-size:10px;color:#222;}
+  h1{text-align:center;font-size:15px;color:#1F3864;margin-bottom:4px;}
+  .sub{text-align:center;font-size:10px;color:#666;margin-bottom:12px;}
+  .week{margin-bottom:14px;page-break-inside:avoid;}
+  .wk-hdr{background:#1F3864;color:white;padding:5px 10px;font-weight:bold;font-size:11px;border-radius:5px 5px 0 0;}
+  .wk-hdr span{float:right;font-weight:normal;font-size:10px;}
+  table{width:100%;border-collapse:collapse;border:1px solid #ccc;}
+  th{background:#2E74B5;color:white;padding:4px 5px;text-align:center;font-size:10px;border:1px solid #aaa;}
+  th.name-col{text-align:left;}
+  td{padding:4px 4px;border:1px solid #ddd;text-align:center;font-size:10px;}
+  td.name-col{text-align:left;font-weight:bold;}
+  td.role-col{color:#666;font-size:9px;text-align:left;}
+  .sam{background:#D6E4F7;color:#1F3864;font-weight:bold;}
+  .spm{background:#E2EFDA;color:#375623;font-weight:bold;}
+  .smid{background:#EDE0F5;color:#5B0080;font-weight:bold;}
+  .soff{color:#bbb;}
+  .shol{background:#FFF2CC;color:#7F4000;}
+  .sclosed{background:#f0f0f0;color:#999;font-style:italic;}
+  .kh{font-size:8px;display:block;}
+  .legend{display:flex;gap:14px;margin:10px 0;font-size:9px;align-items:center;flex-wrap:wrap;}
+  .li{display:flex;align-items:center;gap:3px;}
+  .ld{width:11px;height:11px;border-radius:2px;display:inline-block;}
+  .footer{margin-top:10px;font-size:9px;color:#888;text-align:center;border-top:1px solid #eee;padding-top:6px;}
+  .hrs-row td{background:#f8f8f8;font-style:italic;color:#555;}
+  </style></head><body>
+  <h1>🔧 Mr. Lube + Tires — ${moName} ${year} Work Schedule</h1>
+  <div class="sub">Posted: ${new Date().toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'})}</div>
+  <div class="legend">
+    <span style="font-weight:bold;color:#555;">Shift types:</span>
+    <span class="li"><span class="ld" style="background:#D6E4F7;"></span> AM (opener)</span>
+    <span class="li"><span class="ld" style="background:#E2EFDA;"></span> PM (closer)</span>
+    <span class="li"><span class="ld" style="background:#EDE0F5;"></span> MID (peak hrs)</span>
+    <span class="li"><span class="ld" style="background:#FFF2CC;"></span> Statutory Holiday</span>
+    <span class="li"><span class="ld" style="background:#f0f0f0;border:1px solid #ccc;"></span> Shop Closed</span>
+    <span style="font-weight:bold;color:#5B0080;">🔑 = Keyholder on duty</span>
+  </div>`;
+
+  wkResults.forEach((wr,wi)=>{
+    const{week}=wr;
+    const inMo=week.filter(d=>d.getMonth()===month-1);
+    if(!inMo.length)return;
+
+    html+=`<div class="week">
+    <div class="wk-hdr">Week ${wi+1}${wr.hasHol?' &nbsp;⚠ Stat Holiday Week':''}<span>${moName} ${inMo[0].getDate()}–${inMo[inMo.length-1].getDate()}</span></div>
+    <table><thead><tr>
+      <th class="name-col" style="min-width:110px;">Employee</th>
+      <th class="name-col" style="min-width:80px;">Role</th>
+      ${inMo.map(d=>{
+        const isC=closed.has(dk(d)),isH=hols.has(dk(d));
+        return`<th style="${isC?'background:#eee;color:#999;':isH?'background:#9A6000;':''}">${DS[dow(d)]}<br>${d.getDate()}</th>`;
+      }).join('')}
+      <th>Total<br>Hrs</th>
+    </tr></thead><tbody>`;
+
+    emps.forEach(emp=>{
+      const totalH=inMo.reduce((a,d)=>a+(asgn[emp.id][dk(d)]?8:0),0);
+      html+=`<tr>
+        <td class="name-col">${emp.name}${emp.keyholder?' 🔑':''}</td>
+        <td class="role-col">${emp.role}</td>
+        ${inMo.map(date=>{
+          const key=dk(date),s=asgn[emp.id][key];
+          const isCl=closed.has(key),isH=hols.has(key);
+          if(isCl)return'<td class="sclosed">CLOSED</td>';
+          if(s){const cls=s.type==='AM'?'sam':s.type==='PM'?'spm':'smid';
+            return`<td class="${cls}">${s.label}${s.keyholder?'<span class="kh">🔑</span>':''}</td>`;}
+          if(isH)return'<td class="shol">HOL</td>';
+          return'<td class="soff">OFF</td>';
+        }).join('')}
+        <td style="font-weight:bold;text-align:center;">${totalH}</td>
+      </tr>`;
+    });
+
+    // Coverage row
+    html+=`<tr class="hrs-row">
+      <td colspan="2" style="text-align:right;">Staff on shift:</td>
+      ${inMo.map(date=>{
+        const key=dk(date);
+        if(closed.has(key))return'<td>—</td>';
+        const n=emps.filter(e=>asgn[e.id][key]).length;
+        return`<td>${n}</td>`;
+      }).join('')}
+      <td></td>
+    </tr></tbody></table></div>`;
+  });
+
+  html+=`<div class="footer">
+    AM shift = opens store · PM shift = closes store · MID shift = peak hours coverage<br>
+    🔑 A keyholder must be present at all store openings and closings.<br>
+    Questions about your schedule? See your manager.
+  </div></body></html>`;
+
+  const w=window.open('','_blank');
+  w.document.write(html); w.document.close(); w.focus();
+  setTimeout(()=>w.print(),600);
+}
+
+// ════════════════════════════════════════════════════════════════
+// EXCEL EXPORT
+// ════════════════════════════════════════════════════════════════
+function downloadExcel(){
+  if(typeof XLSX==='undefined'){alert('SheetJS not loaded — open with internet connection.');return;}
+  if(!schedule){alert('Generate a schedule first.');return;}
+  const{asgn,weeks,wkResults,hols,closed,year,month,budget,emps}=schedule;
+  const moName=MONTHS[month-1];
+  const wb=XLSX.utils.book_new();
+
+  // Dashboard
+  const dash=[
+    ['MR. LUBE + TIRES SCHEDULING SYSTEM — DASHBOARD'],[moName+' '+year],[''],
+    ['BUDGET SUMMARY'],
+    ['Monthly Labor Budget:','$'+budget.toLocaleString('en',{maximumFractionDigits:0})],
+    ['Total Scheduled:','$'+wkResults.reduce((a,w)=>a+w.budUsed,0).toLocaleString('en',{maximumFractionDigits:0})],[''],
+    ['COVERAGE RULES'],
+    ['Keyholder at open:','✓ AM shift always includes a keyholder'],
+    ['Keyholder at close:','✓ PM shift always includes a keyholder'],
+    ['Min 2 at open:','✓ At least 2 employees on AM shift every operating day'],
+    ['Min 2 at close:','✓ At least 2 employees on PM shift every operating day'],
+    ['Closed days:','Christmas Day (Dec 25) & New Year\'s Day (Jan 1)'],
+    ['Stat holiday hours:','9am–5pm on all open public holidays'],[''],
+    ['EMPLOYEE MONTHLY SUMMARY'],
+    ['Name','Role','FT/PT','Keyholder?','Total Hours','Total Cost','Any OT?'],
+  ];
+  emps.forEach(emp=>{
+    const hrs=weeks.flat().filter(d=>d.getMonth()===month-1&&asgn[emp.id][dk(d)]).length*8;
+    const hasOT=wkResults.some(w=>w.empOT[emp.id]?.total>0);
+    dash.push([emp.name,emp.role,emp.empType,emp.keyholder?'🔑 Yes':'No',hrs,'$'+(hrs*emp.rate).toFixed(0),hasOT?'⚠ CHECK':'✓ None']);
+  });
+  dash.push([''],['WEEKLY SUMMARY','Budget','Scheduled','Variance','Holiday Wk?','Max Hrs']);
+  wkResults.forEach((w,i)=>{
+    const v=w.wBudget-w.budUsed;
+    dash.push(['Week '+(i+1),'$'+w.wBudget.toFixed(0),'$'+w.budUsed.toFixed(0),
+      (v>=0?'+':'')+'$'+v.toFixed(0),w.hasHol?'YES (32hr max)':'No',w.maxHrs]);
+  });
+  dash.push([''],['Source:','saskatchewan.ca/business/employment-standards/overtime']);
+  const dWs=XLSX.utils.aoa_to_sheet(dash);
+  dWs['!cols']=[{wch:38},{wch:22},{wch:10},{wch:12},{wch:14},{wch:14},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,dWs,'Dashboard');
+
+  // Weekly sheets
+  wkResults.forEach((wr,wi)=>{
+    const{week}=wr;
+    const rows=[
+      ['WEEK '+(wi+1)+' — '+moName+' '+year+(wr.hasHol?' ⚠ HOLIDAY WEEK':''),
+       ...week.map(d=>d.getMonth()===month-1?DS[dow(d)]+' '+(d.getMonth()+1)+'/'+d.getDate():'—'),'','',''],
+      ['Employee','Role','FT/PT','🔑',...week.map(d=>d.getMonth()===month-1?'Shift':'—'),'Wk Hrs','Wk Cost','OT','Min Hrs'],
+    ];
+    emps.forEach(emp=>{
+      const row=[emp.name,emp.role,emp.empType,emp.keyholder?'🔑':''];
+      week.forEach(date=>{
+        if(date.getMonth()!==month-1){row.push('—');return;}
+        const key=dk(date),s=asgn[emp.id][key];
+        if(closed.has(key)){row.push('CLOSED');return;}
+        row.push(s?s.label+(s.keyholder?' 🔑':''):(hols.has(key)?'HOL':'OFF'));
+      });
+      const ot=wr.empOT[emp.id],mw=wr.minWarn[emp.id];
+      const minH=emp.empType==='FT'?32:16;
+      row.push(wr.wHrs[emp.id]||0,'$'+((wr.wHrs[emp.id]||0)*emp.rate).toFixed(0),
+        ot?.total>0?'⚠ '+ot.total+'hr OT':'✓ No OT',
+        mw?'⚠ Got '+mw.got+' (min '+minH+')':'✓ '+minH+'+ hrs');
+      rows.push(row);
+    });
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:18},{wch:12},{wch:6},{wch:5},...Array(7).fill({wch:10}),{wch:8},{wch:12},{wch:12},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,ws,'Week '+(wi+1));
+  });
+
+  // Monthly calendar
+  const dim=new Date(year,month,0).getDate();
+  const cal=[[moName+' '+year+' — FULL MONTHLY SCHEDULE'],
+    ['Employee','Role','FT/PT',...Array.from({length:dim},(_,i)=>{const d=new Date(year,month-1,i+1);return (i+1)+' '+DS[dow(d)]}),'Hrs','Cost']];
+  emps.forEach(emp=>{
+    const row=[emp.name,emp.role,emp.empType]; let h=0;
+    for(let i=1;i<=dim;i++){
+      const d=new Date(year,month-1,i),key=dk(d),s=asgn[emp.id][key];
+      if(closed.has(key)){row.push('CLOSED');}
+      else if(s){row.push(s.label+(s.keyholder?' 🔑':''));h+=8;}
+      else if(hols.has(key))row.push('HOL');
+      else row.push('OFF');
+    }
+    row.push(h,'$'+(h*emp.rate).toFixed(0)); cal.push(row);
+  });
+  const calWs=XLSX.utils.aoa_to_sheet(cal);
+  calWs['!cols']=[{wch:18},{wch:12},{wch:6},...Array(dim).fill({wch:9}),{wch:6},{wch:11}];
+  XLSX.utils.book_append_sheet(wb,calWs,'Monthly Calendar');
+
+  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  const blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url;
+  a.download='MrLubeTires_'+moName+'_'+year+'.xlsx';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  flash('✅ Excel downloaded!');
+}
+
+// ════════════════════════════════════════════════════════════════
+// UI — SETUP TAB
+// ════════════════════════════════════════════════════════════════
+function renderEmpTable(){
+  document.getElementById('emp-tbody').innerHTML=employees.map((emp,i)=>{
+    const act=isActive(emp);
+    return`<tr class="${act?'':'na-row'}">
+      <td style="color:#888;width:22px;">${emp.id}</td>
+      <td><input type="text" value="${emp.name}"
+        oninput="employees[${i}].name=this.value;renderEmpTable();saveAll();"
+        style="width:145px;${act?'':'color:#bbb;'}"></td>
+      <td><select onchange="employees[${i}].role=this.value;saveAll();" ${act?'':'disabled'}
+        style="color:${act?'#0000CC':'#bbb'};">
+        ${ROLES.map(r=>`<option ${r===emp.role?'selected':''}>${r}</option>`).join('')}
+      </select></td>
+      <td><input type="number" value="${emp.rate}" step="0.25"
+        style="width:70px;${act?'':'color:#bbb;'}" ${act?'':'disabled'}
+        onchange="employees[${i}].rate=parseFloat(this.value)||0;saveAll();"></td>
+      <td style="text-align:center;">${act?`
+        <button id="ftbtn${i}" class="${emp.empType==='FT'?'ftbtn':'ptbtn'}"
+          onclick="employees[${i}].empType=employees[${i}].empType==='FT'?'PT':'FT';
+            this.textContent=employees[${i}].empType;
+            this.className=employees[${i}].empType==='FT'?'ftbtn':'ptbtn';saveAll();">
+          ${emp.empType||'FT'}
+        </button>`:'<span style="color:#ccc;font-size:11px;">—</span>'}</td>
+      <td style="text-align:center;">${act?`
+        <button id="flxbtn${i}" class="${emp.flex?'flxbtn':'flxno'}"
+          onclick="employees[${i}].flex=!employees[${i}].flex;
+            this.textContent=employees[${i}].flex?'✦ Flex':'Flex?';
+            this.className=employees[${i}].flex?'flxbtn':'flxno';saveAll();"
+          title="Flex Tech can fill either Upper or Lower Tech role">
+          ${emp.flex?'✦ Flex':'Flex?'}
+        </button>`:'<span style="color:#ccc;font-size:11px;">—</span>'}</td>
+      <td style="text-align:center;">${act?`
+        <button id="khbtn${i}" class="${emp.keyholder?'kyes':'kno'}"
+          onclick="employees[${i}].keyholder=!employees[${i}].keyholder;
+            this.textContent=employees[${i}].keyholder?'🔑 Yes':'No';
+            this.className=employees[${i}].keyholder?'kyes':'kno';saveAll();">
+          ${emp.keyholder?'🔑 Yes':'No'}
+        </button>`:'<span style="color:#ccc;font-size:11px;">—</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRevGrid(){
+  document.getElementById('rev-grid').innerHTML=MONTHS.map(mo=>`
+    <div class="rr">
+      <label>${mo}:</label>
+      <span style="color:#888;font-size:13px;">$</span>
+      <input type="number" value="${revenues[mo]||''}" placeholder="0" style="width:115px;"
+        onchange="revenues['${mo}']=parseInt(this.value)||0;saveAll();updateStats()">
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════════
+// UI — TIME OFF TAB
+// ════════════════════════════════════════════════════════════════
+function renderTimeOff(){
+  const mo  = parseInt(document.getElementById('to-month').value)||1;
+  const yr  = parseInt(document.getElementById('to-year').value)||2026;
+  const hols   = getSKHols(yr);
+  const closed = getClosedDays(yr);
+  const emps   = actEmps();
+  const dim    = new Date(yr, mo, 0).getDate();
+
+  // Day headers
+  const dayHeaders = Array.from({length:dim},(_,i)=>{
+    const d = new Date(yr, mo-1, i+1);
+    const key = dk(d);
+    return {n:i+1, dow:dow(d), key, isClosed:closed.has(key), isHol:hols.has(key),
+            label:DS[dow(d)]};
+  });
+
+  const grid = document.getElementById('to-grid');
+  if (emps.length===0){grid.innerHTML='<div class="ebox">No active employees — go to Setup and add employees.</div>';return;}
+
+  grid.innerHTML = emps.map(emp=>{
+    const eid = emp.id;
+    if (!timeOff[eid]) timeOff[eid] = new Set();
+    return `<div class="to-emp-row">
+      <div class="to-emp-name">${emp.name} <span style="font-size:11px;color:#666;font-weight:normal;">— ${emp.role} (${emp.empType||'FT'})</span></div>
+      <div class="to-cal">
+        ${dayHeaders.map(d=>{
+          const isTO = timeOff[eid]?.has(d.key);
+          const cls  = d.isClosed ? 'to-day closed' : isTO ? 'to-day off' : 'to-day';
+          const title= d.isClosed ? 'Shop closed' : isTO ? 'Click to remove time-off' : 'Click to request time off';
+          return`<div class="${cls}" title="${title}"
+            onclick="${d.isClosed?'':`toggleTO(${eid},'${d.key}')`}">
+            ${d.n}<span>${d.label}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleTO(empId, dateStr){
+  if (!timeOff[empId]) timeOff[empId] = new Set();
+  if (timeOff[empId].has(dateStr)) timeOff[empId].delete(dateStr);
+  else timeOff[empId].add(dateStr);
+  saveAll();
+  renderTimeOff();
+  updateStats(); // refresh warnings
+}
+
+function clearMonthTimeOff(){
+  const mo  = String(parseInt(document.getElementById('to-month').value)).padStart(2,'0');
+  const yr  = document.getElementById('to-year').value;
+  const prefix = yr+'-'+mo;
+  actEmps().forEach(emp=>{
+    if (!timeOff[emp.id]) return;
+    [...timeOff[emp.id]].filter(d=>d.startsWith(prefix)).forEach(d=>timeOff[emp.id].delete(d));
+  });
+  saveAll(); renderTimeOff(); flash('✅ Time-off requests cleared for this month.');
+}
+
+function syncTimeOffMonth(){
+  const mo = document.getElementById('sel-month').value;
+  const yr = document.getElementById('sel-year').value;
+  if (document.getElementById('to-month')) document.getElementById('to-month').value = mo;
+  if (document.getElementById('to-year'))  document.getElementById('to-year').value  = yr;
+}
+
+// ════════════════════════════════════════════════════════════════
+// UI — GENERATE TAB
+// ════════════════════════════════════════════════════════════════
+function updateStats(){
+  const mo   = parseInt(document.getElementById('sel-month').value)||1;
+  const yr   = parseInt(document.getElementById('sel-year').value)||2026;
+  const rate = parseFloat(document.getElementById('budget-rate').value)/100||0.25;
+  const rev  = revenues[MONTHS[mo-1]]||0;
+  const budget = rev*rate;
+  const wks  = getWeeks(yr,mo).length;
+  const emps = actEmps();
+  const khs  = emps.filter(e=>e.keyholder).length;
+  const fts  = emps.filter(e=>e.empType==='FT').length;
+  const pts  = emps.filter(e=>e.empType==='PT').length;
+  const toCount = Object.values(timeOff).reduce((a,s)=>{
+    const mo2=String(mo).padStart(2,'0');
+    return a+([...s].filter(d=>d.startsWith(yr+'-'+mo2)).length);
+  },0);
+
+  document.getElementById('stat-grid').innerHTML=`
+    <div class="sb" style="border-left:4px solid #2E74B5;">
+      <div class="sl">Last Year Revenue</div>
+      <div class="sv" style="color:#2E74B5;">$${rev.toLocaleString()}</div>
+    </div>
+    <div class="sb" style="border-left:4px solid #1F3864;">
+      <div class="sl">Monthly Labor Budget</div>
+      <div class="sv" style="color:#1F3864;">$${budget.toLocaleString('en',{maximumFractionDigits:0})}</div>
+    </div>
+    <div class="sb" style="border-left:4px solid #375623;">
+      <div class="sl">Weekly Budget (÷${wks})</div>
+      <div class="sv" style="color:#375623;">$${(budget/wks).toLocaleString('en',{maximumFractionDigits:0})}</div>
+    </div>
+    <div class="sb" style="border-left:4px solid #5B0080;">
+      <div class="sl">Active Employees</div>
+      <div class="sv" style="color:#5B0080;">${emps.length}
+        <span style="font-size:11px;font-weight:normal;"> FT:${fts} PT:${pts} 🔑${khs}</span></div>
+    </div>
+    <div class="sb" style="border-left:4px solid #D97706;">
+      <div class="sl">Time-Off Requests This Month</div>
+      <div class="sv" style="color:#D97706;">${toCount} day${toCount!==1?'s':''}</div>
+    </div>`;
+
+  const holInMo=[...getSKHols(yr)].filter(h=>h.startsWith(yr+'-'+String(mo).padStart(2,'0')));
+  const closedInMo=[...getClosedDays(yr)].filter(d=>d.startsWith(yr+'-'+String(mo).padStart(2,'0')));
+  let holHtml='';
+  if(closedInMo.length>0)holHtml+=`<div class="wbox"><strong>🚫 Shop Closed Days in ${MONTHS[mo-1]} ${yr}</strong><p>${closedInMo.map(d=>new Date(d+'T12:00').toLocaleDateString('en-CA',{month:'long',day:'numeric'})).join(', ')} — no employees scheduled.</p></div>`;
+  if(holInMo.length>0)holHtml+=`<div class="wbox"><strong>⚠ Public Holiday(s) in ${MONTHS[mo-1]} ${yr}</strong><p>Shop hours 9am–5pm. Holiday week(s) capped at <strong>32 hrs/employee</strong> per SK Employment Act.</p></div>`;
+  document.getElementById('hol-notice').innerHTML=holHtml;
+
+  const warns=[];
+  if(rev<=0) warns.push('No revenue entered for '+MONTHS[mo-1]+' — go to Setup.');
+  if(khs<1)  warns.push('No keyholders set — mark at least one employee as keyholder in Setup.');
+  if(khs===1)warns.push('Only 1 keyholder. Having 2+ ensures coverage at both open and close on split shifts.');
+  document.getElementById('gen-warns').innerHTML=warns.map(w=>`<div class="ebox">⚠ ${w}</div>`).join('');
+  document.getElementById('gen-btn').disabled=rev<=0||khs<1;
+}
+
+function runGenerate(){
+  const mo   = parseInt(document.getElementById('sel-month').value)||1;
+  const yr   = parseInt(document.getElementById('sel-year').value)||2026;
+  const rate = parseFloat(document.getElementById('budget-rate').value)/100||0.25;
+  const rev  = revenues[MONTHS[mo-1]]||0;
+  if(rev<=0){flash('⚠ Enter revenue for '+MONTHS[mo-1]+' in Setup');return;}
+  if(actEmps().filter(e=>e.keyholder).length<1){flash('⚠ Mark at least 1 keyholder in Setup');return;}
+  const btn=document.getElementById('gen-btn');
+  btn.textContent='⏳ Building…'; btn.disabled=true;
+  setTimeout(()=>{
+    schedule=buildSchedule(yr,mo,rev*rate);
+    renderPreview();
+    btn.textContent='▶ Generate Schedule'; btn.disabled=false;
+    showTab('preview');
+    flash('✅ Schedule built for '+MONTHS[mo-1]+' '+yr);
+  },60);
+}
+
+// ════════════════════════════════════════════════════════════════
+// UI — PREVIEW TAB
+// ════════════════════════════════════════════════════════════════
+function renderPreview(){
+  if(!schedule)return;
+  document.getElementById('prev-empty').style.display='none';
+  document.getElementById('prev-content').style.display='block';
+  const{asgn,weeks,wkResults,hols,closed,year,month,budget,emps}=schedule;
+  const moName=MONTHS[month-1];
+
+  document.getElementById('prev-title').textContent=moName+' '+year+' — Optimized Schedule';
+  const totalUsed=wkResults.reduce((a,w)=>a+w.budUsed,0);
+  document.getElementById('prev-stats').innerHTML=`
+    <span>📊 Budget: <strong>$${budget.toLocaleString('en',{maximumFractionDigits:0})}</strong></span>
+    <span>💵 Scheduled: <strong>$${totalUsed.toLocaleString('en',{maximumFractionDigits:0})}</strong></span>
+    <span style="color:#5B0080;font-weight:bold;">🔑 Keyholder enforced</span>
+    <span style="color:#375623;font-weight:bold;">✓ Zero OT</span>`;
+
+  const grids=document.getElementById('weekly-grids'); grids.innerHTML='';
+  wkResults.forEach((wr,wi)=>{
+    const{week,wHrs,budUsed,wBudget,hasHol,empOT,minWarn,daysAvail}=wr;
+    const inMo=week.filter(d=>d.getMonth()===month-1);
+    const isPartialWk = (daysAvail||7) < 7;
+
+    // Coverage audit
+    const gaps=[];
+    week.forEach((date,di)=>{
+      if(date.getMonth()!==month-1)return;
+      const key=dk(date);
+      if(closed.has(key))return;
+      const sh=shopHours(di,date,hols,closed); if(!sh)return;
+      const day8=is8Hr(sh);
+      const amKH=emps.some(e=>e.keyholder&&asgn[e.id][key]?.type==='AM');
+      const pmKH=day8?amKH:emps.some(e=>e.keyholder&&asgn[e.id][key]?.type==='PM');
+      const amCnt=emps.filter(e=>asgn[e.id][key]?.type==='AM').length;
+      const pmCnt=day8?amCnt:emps.filter(e=>asgn[e.id][key]?.type==='PM').length;
+      if(!amKH) gaps.push(DS[di]+' no open🔑');
+      if(!pmKH) gaps.push(DS[di]+' no close🔑');
+      if(amCnt<2) gaps.push(DS[di]+' '+amCnt+' opener');
+      if(pmCnt<2) gaps.push(DS[di]+' '+pmCnt+' closer');
+      // Lower Tech (or flex Upper Tech) required every operating day
+      if(!emps.some(e=>canFillLower(e)&&asgn[e.id][key])) gaps.push(DS[di]+' no lower-capable tech');
+    });
+
+    // Min hours warnings
+    const minWarnings=Object.entries(minWarn).map(([id,w])=>{
+      const emp=emps.find(e=>e.id==id);
+      const note = w.partial ? ' (partial week)' : '';
+      return emp?`${emp.name}: ${w.got}h of ${w.min}h min${note}`:'';
+    }).filter(Boolean);
+
+    let tbl=`<table style="border-collapse:collapse;font-size:11px;width:100%;">
+      <thead><tr style="background:#1F3864;color:white;">
+        <th style="padding:6px 7px;text-align:left;min-width:88px;font-size:11px;">Employee</th>
+        <th style="padding:6px 4px;font-size:10px;">Role</th>
+        <th style="padding:6px 3px;text-align:center;font-size:9px;">Type</th>
+        <th style="padding:6px 3px;text-align:center;font-size:10px;">🔑</th>
+        ${week.map((d,di)=>{
+          const inM=d.getMonth()===month-1;
+          const isCl=inM&&closed.has(dk(d)),isH=inM&&hols.has(dk(d));
+          return`<th style="padding:5px 2px;text-align:center;min-width:55px;font-size:10px;
+            ${!inM?'opacity:.35;background:#2d4a7a;':isCl?'background:#888;':isH?'background:#9A6000;':''}">
+            ${inM?DS[di]+'<br>'+d.getDate():'—'}</th>`;
+        }).join('')}
+        <th style="padding:6px 4px;text-align:center;font-size:10px;">Hrs</th>
+        <th style="padding:6px 4px;text-align:center;font-size:9px;">OT/Min</th>
+      </tr></thead><tbody>
+      ${emps.map((emp,ei)=>{
+        const ot=empOT[emp.id],mw=minWarn[emp.id];
+        const minH=emp.empType==='FT'?32:16;
+        const otCell=ot?.total>0?`<span style="color:#C00;">⚠${ot.total}h OT</span>`:
+          mw?`<span class="minhrs-warn" title="${mw.partial?'Prorated for partial week':'Below minimum hours'}">⚠${mw.got}/${mw.min}h${mw.partial?' ↔':''}</span>`:
+          `<span class="minhrs-ok">✓</span>`;
+        return`<tr style="background:${ei%2===0?'#f8fafc':'white'};">
+          <td style="padding:4px 7px;font-weight:600;font-size:11px;">${emp.name}</td>
+          <td style="padding:4px 4px;color:#555;font-size:10px;white-space:nowrap;">${emp.role}</td>
+          <td style="padding:4px;text-align:center;"><span class="badge ${emp.empType==='FT'?'bft':'bpt'}">${emp.empType||'FT'}</span></td>
+          <td style="padding:4px;text-align:center;font-size:12px;">${emp.keyholder?'🔑':''}</td>
+          ${week.map(date=>{
+            const inM=date.getMonth()===month-1;
+            const key=dk(date);
+            const s=inM&&asgn[emp.id][key];
+            const isCl=inM&&closed.has(key);
+            const isH=inM&&hols.has(key);
+            if(!inM)return'<td style="background:#eee;color:#ccc;text-align:center;font-size:10px;padding:3px 2px;"></td>';
+            if(isCl)return'<td class="sclosed">CLOSED</td>';
+            const editAttr=`class="{CLS} ec" onclick="editCell(${emp.id},'${key}',${wi})" title="Click to edit shift"`;
+            if(s){const cls=s.type==='AM'?'sam':s.type==='PM'?'spm':'smid';
+              return`<td ${editAttr.replace('{CLS}',cls)}>${s.label}${s.keyholder?' 🔑':''}${s.manual?'<span class="manual-dot"></span>':''}</td>`;}
+            if(isH)return`<td ${editAttr.replace('{CLS}','shol')}>HOL</td>`;
+            const isTO=timeOff[emp.id]?.has(key);
+            return`<td ${editAttr.replace('{CLS}','soff')} title="${isTO?'Time off requested — click to override':'Off — click to add shift'}">${isTO?'<span style="color:#D97706;font-weight:bold;">TO</span>':'OFF'}</td>`;
+          }).join('')}
+          <td style="padding:4px;text-align:center;font-weight:bold;color:#1F3864;font-size:11px;">${typeof wHrs[emp.id]==='number'?wHrs[emp.id]%1===0?wHrs[emp.id]:wHrs[emp.id].toFixed(1):0}</td>
+          <td style="padding:4px;text-align:center;font-size:10px;">${otCell}</td>
+        </tr>`;
+      }).join('')}
+      </tbody></table>`;
+
+    const div=document.createElement('div');
+    div.className='card';
+    div.innerHTML=`
+      <div class="sh">
+        <div style="font-weight:bold;color:#1F3864;font-size:13px;">
+          Week ${wi+1} &nbsp;·&nbsp;
+          ${inMo.length>0?(inMo[0].getMonth()+1)+'/'+inMo[0].getDate()+' – '+(inMo[inMo.length-1].getMonth()+1)+'/'+inMo[inMo.length-1].getDate():''}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;font-size:12px;flex-wrap:wrap;">
+          ${hasHol?'<span class="badge bwarn">⚠ Holiday (32hr max)</span>':''}
+          ${isPartialWk?`<span class="badge" style="background:#E0F0FF;color:#1F3864;">↔ Partial week (${daysAvail} days in month)</span>`:''}
+          <span>Budget: $${wBudget.toFixed(0)}</span>
+          <span class="badge ${budUsed>wBudget*1.02?'bred':'bok'}">Used: $${budUsed.toFixed(0)}</span>
+          <span class="badge ${gaps.length===0?'bkey':'bred'}">${gaps.length===0?'🔑 ✓':'⚠ '+gaps.length+' gap(s)'}</span>
+          ${minWarnings.length>0?`<span class="badge bwarn">⚠ Hours below min</span>`:''}
+        </div>
+      </div>
+      ${gaps.length>0?`<div class="ebox" style="margin-bottom:8px;font-size:11px;">⚠ Coverage: ${gaps.join(' | ')}</div>`:''}
+      ${minWarnings.length>0?`<div class="wbox" style="margin-bottom:8px;"><strong>⚠ Below minimum hours:</strong><p>${minWarnings.join(' · ')}</p></div>`:''}
+      <div class="ox">${tbl}</div>`;
+    grids.appendChild(div);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// CELL EDITING — click any day cell in Preview to edit
+// ════════════════════════════════════════════════════════════════
+let editState = null; // {empId, dateKey, wi, hadShift}
+
+// Convert "HH:MM" time string → decimal hours (e.g. "14:30" → 14.5)
+function timeToH(str) {
+  const [h, m] = str.split(':').map(Number);
+  return h + m / 60;
+}
+// Decimal hours → "HH:MM" string (e.g. 14.5 → "14:30")
+function hToTime(h) {
+  const hr = Math.floor(h);
+  const mn = Math.round((h - hr) * 60);
+  return String(hr).padStart(2,'0') + ':' + String(mn).padStart(2,'0');
+}
+// Format hours as human-readable label with optional minutes
+function fhSFull(h) {
+  const hr = Math.floor(h), mn = Math.round((h - hr) * 60);
+  const h12 = hr > 12 ? hr-12 : hr===0 ? 12 : hr;
+  return h12 + (mn > 0 ? ':' + String(mn).padStart(2,'0') : '') + (hr >= 12 ? 'p' : 'a');
+}
+// Determine shift type from times relative to shop hours
+function inferShiftType(startH, endH, sh) {
+  if (!sh) return 'AM';
+  if (Math.abs(startH - sh.o) <= 0.6) return 'AM';
+  if (Math.abs(endH   - sh.c) <= 0.6) return 'PM';
+  return 'MID';
+}
+
+function editCell(empId, dateKey, wi) {
+  if (!schedule) return;
+  const {asgn, emps, hols, closed} = schedule;
+  const emp = emps.find(e => e.id == empId);
+  if (!emp) return;
+
+  const date = new Date(dateKey + 'T12:00');
+  const di   = dow(date);
+  const sh   = shopHours(di, date, hols, closed);
+  const s    = asgn[empId]?.[dateKey];
+  const isHol = hols.has(dateKey);
+  const isTO  = !!(timeOff[empId] && timeOff[empId].has(dateKey));
+
+  editState = {empId, dateKey, wi, hadShift: !!s};
+
+  // Header
+  document.getElementById('modal-emp').textContent =
+    emp.name + (emp.keyholder ? ' 🔑' : '');
+  const dayLabel = DS[di] + ' ' + (date.getMonth()+1) + '/' + date.getDate();
+  document.getElementById('modal-date').textContent =
+    dayLabel + (isHol ? ' — Public Holiday' : '') + (isTO ? ' — Time Off Requested' : '');
+
+  // Holiday note
+  const holNote = document.getElementById('modal-hol-note');
+  if (isHol) {
+    holNote.textContent = '⚠ Holiday: normal shop hours are 9am–5pm.';
+    holNote.style.display = 'block';
+  } else {
+    holNote.style.display = 'none';
+  }
+
+  // Pre-fill times — use existing shift or sensible default
+  let defStart, defEnd;
+  if (s) {
+    defStart = hToTime(s.s);
+    defEnd   = hToTime(s.e);
+  } else if (sh) {
+    defStart = hToTime(sh.o);
+    defEnd   = hToTime(sh.o + 8);
+  } else {
+    defStart = '09:00';
+    defEnd   = '17:00';
+  }
+  document.getElementById('modal-start').value = defStart;
+  document.getElementById('modal-end').value   = defEnd;
+
+  // Remove button label
+  document.getElementById('modal-remove-btn').textContent = s ? '✕ Remove' : '✕ Clear';
+  document.getElementById('modal-remove-btn').style.opacity = s ? '1' : '0.5';
+
+  document.getElementById('modal-warn').style.display = 'none';
+  updateModalHrs();
+
+  document.getElementById('edit-modal').style.display = 'block';
+  document.getElementById('modal-overlay').style.display = 'block';
+}
+
+function updateModalHrs() {
+  const sv = document.getElementById('modal-start').value;
+  const ev = document.getElementById('modal-end').value;
+  const el = document.getElementById('modal-hrs');
+  if (!sv || !ev) { el.textContent = '— hrs'; return; }
+  const sh = timeToH(sv), eh = timeToH(ev);
+  const hrs = eh - sh;
+  if (hrs <= 0) {
+    el.textContent = '⚠ End must be after start';
+    el.style.color = '#C00';
+  } else {
+    el.textContent = hrs.toFixed(1) + ' hour' + (hrs !== 1 ? 's' : '');
+    el.style.color = hrs > 8 ? '#C00' : hrs > 0 ? '#375623' : '#888';
+  }
+}
+
+function saveCell() {
+  if (!editState || !schedule) return;
+  const {empId, dateKey, wi} = editState;
+  const sv = document.getElementById('modal-start').value;
+  const ev = document.getElementById('modal-end').value;
+
+  if (!sv || !ev) { showModalWarn('Please enter both start and end times.'); return; }
+
+  const startH = timeToH(sv), endH = timeToH(ev);
+  const hrs = endH - startH;
+  if (hrs <= 0) { showModalWarn('End time must be after start time.'); return; }
+  if (hrs > 16)  { showModalWarn('Cannot schedule more than 16 hrs in a day (SK Employment Act).'); return; }
+
+  const emp  = schedule.emps.find(e => e.id == empId);
+  const date = new Date(dateKey + 'T12:00');
+  const di   = dow(date);
+  const sh   = shopHours(di, date, schedule.hols, schedule.closed);
+  const type = inferShiftType(startH, endH, sh);
+  const label = fhSFull(startH) + '-' + fhSFull(endH);
+
+  schedule.asgn[empId][dateKey] = {
+    s: startH, e: endH, hrs, type,
+    isHol: schedule.hols.has(dateKey),
+    keyholder: emp?.keyholder || false,
+    label, cost: (emp?.rate || 0) * hrs,
+    manual: true   // flag so print/Excel can mark it
+  };
+
+  recalcWeek(wi);
+  closeModal();
+  renderPreview();
+  flash('✅ Shift saved — ' + (emp?.name || '') + ' ' + label);
+}
+
+function clearCell() {
+  if (!editState || !schedule) return;
+  const {empId, dateKey, wi} = editState;
+  if (!editState.hadShift) { closeModal(); return; } // nothing to remove
+  const emp = schedule.emps.find(e => e.id == empId);
+  delete schedule.asgn[empId][dateKey];
+  recalcWeek(wi);
+  closeModal();
+  renderPreview();
+  flash('✅ Shift removed — ' + (emp?.name || ''));
+}
+
+function recalcWeek(wi) {
+  if (!schedule) return;
+  const {asgn, emps, wkResults, month} = schedule;
+  const wr = wkResults[wi];
+  if (!wr) return;
+  const {week, maxHrs} = wr;
+
+  const wHrs = {};
+  let budUsed = 0;
+  emps.forEach(e => wHrs[e.id] = 0);
+
+  week.forEach(date => {
+    if (date.getMonth() !== month-1) return;
+    const key = dk(date);
+    emps.forEach(emp => {
+      const s = asgn[emp.id]?.[key];
+      if (s) { wHrs[emp.id] += s.hrs; budUsed += emp.rate * s.hrs; }
+    });
+  });
+
+  const empOT = {}, minWarn = {};
+  emps.forEach(emp => {
+    const weeklyOT = Math.max(0, wHrs[emp.id] - maxHrs);
+    empOT[emp.id] = {total: weeklyOT, wkHrs: wHrs[emp.id]};
+    const daysAvail = wr.daysAvail || 7;
+    const fullMinH  = emp.empType === 'FT' ? 32 : 16;
+    const proratedMin = Math.max(8, Math.floor(fullMinH * Math.min(daysAvail,7) / 7 / 8) * 8);
+    if (wHrs[emp.id] < proratedMin) minWarn[emp.id] = {min: proratedMin, got: parseFloat(wHrs[emp.id].toFixed(1)), partial: daysAvail < 7};
+  });
+
+  wr.wHrs = wHrs;
+  wr.budUsed = budUsed;
+  wr.empOT = empOT;
+  wr.minWarn = minWarn;
+}
+
+function closeModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+  document.getElementById('modal-overlay').style.display = 'none';
+  editState = null;
+}
+
+function showModalWarn(msg) {
+  const el = document.getElementById('modal-warn');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+// ════════════════════════════════════════════════════════════════
+// AI CHAT — calls Claude API with full schedule context
+// ════════════════════════════════════════════════════════════════
+let chatHistory = [];  // [{role:'user'|'assistant', content:'...'}]
+
+function buildScheduleContext() {
+  const emps = actEmps();
+  const lines = [];
+
+  // Shop identity & rules
+  lines.push('SHOP: Mr. Lube + Tires');
+  lines.push('HOURS: Mon–Fri 8am–7pm, Sat 8am–6pm, Sun 9am–5pm, Stat holidays 9am–5pm');
+  lines.push('CLOSED: Christmas Day (Dec 25), New Year\'s Day (Jan 1)');
+  lines.push('');
+
+  // Employees
+  lines.push('=== EMPLOYEES ===');
+  emps.forEach(e => {
+    const flex = e.flex ? ', Flex Tech (can fill Upper or Lower role)' : '';
+    const kh   = e.keyholder ? ', Keyholder' : '';
+    lines.push(`- ${e.name}: ${e.role}, ${e.empType} (${e.empType==='FT'?'min 32 hrs/wk':'min 16 hrs/wk'}), $${e.rate}/hr${kh}${flex}`);
+  });
+  lines.push('');
+
+  // Budget
+  const mo = parseInt(document.getElementById('sel-month')?.value) || new Date().getMonth()+1;
+  const yr = parseInt(document.getElementById('sel-year')?.value)  || new Date().getFullYear();
+  const rate = parseFloat(document.getElementById('budget-rate')?.value)/100 || 0.25;
+  const rev  = revenues[MONTHS[mo-1]] || 0;
+  const budget = rev * rate;
+  lines.push(`=== BUDGET — ${MONTHS[mo-1]} ${yr} ===`);
+  lines.push(`Last year revenue: $${rev.toLocaleString()}`);
+  lines.push(`Labor budget (${Math.round(rate*100)}%): $${budget.toLocaleString('en',{maximumFractionDigits:0})}`);
+  lines.push('');
+
+  // Schedule summary if generated
+  if (schedule) {
+    const {asgn, wkResults, hols, closed, month, year} = schedule;
+    lines.push(`=== SCHEDULE — ${MONTHS[month-1]} ${year} ===`);
+    const totalUsed = wkResults.reduce((a,w)=>a+w.budUsed,0);
+    lines.push(`Total scheduled cost: $${totalUsed.toLocaleString('en',{maximumFractionDigits:0})} of $${budget.toLocaleString('en',{maximumFractionDigits:0})} budget`);
+    lines.push('');
+
+    wkResults.forEach((wr, wi) => {
+      const {week, wHrs, budUsed, wBudget, hasHol, maxHrs, empOT, minWarn, daysAvail} = wr;
+      const inMo = week.filter(d=>d.getMonth()===month-1);
+      if (!inMo.length) return;
+      const partial = (daysAvail||7) < 7;
+      lines.push(`-- Week ${wi+1} (${(inMo[0].getMonth()+1)}/${inMo[0].getDate()}–${(inMo[inMo.length-1].getMonth()+1)}/${inMo[inMo.length-1].getDate()})${hasHol?' [HOLIDAY WEEK, 32hr OT threshold]':''}${partial?` [PARTIAL: only ${daysAvail} days in month]`:''}`);
+      lines.push(`   Budget: $${wBudget.toFixed(0)} | Used: $${budUsed.toFixed(0)}`);
+
+      emps.forEach(emp => {
+        const hrs  = wHrs[emp.id] || 0;
+        const ot   = empOT[emp.id];
+        const mw   = minWarn[emp.id];
+        const days = inMo.map(d => {
+          if (closed.has(dk(d))) return 'CLOSED';
+          const s = asgn[emp.id]?.[dk(d)];
+          if (s) return s.label + (s.type==='AM'?' (AM)':s.type==='PM'?' (PM)':' (MID)') + (s.keyholder?' 🔑':'') + (s.manual?' [manual]':'');
+          if (hols.has(dk(d))) return 'HOL(off)';
+          if (timeOff[emp.id]?.has(dk(d))) return 'TO';
+          return 'OFF';
+        });
+        const otNote = ot?.total > 0 ? ` ⚠ ${ot.total}hr OT` : '';
+        const minNote = mw ? ` ⚠ below min (${mw.got}h of ${mw.min}h${mw.partial?' prorated':''})`:'';
+        lines.push(`   ${emp.name}: ${hrs}hrs${otNote}${minNote} | ${days.join(', ')}`);
+      });
+
+      // Coverage gaps
+      const gaps = [];
+      inMo.forEach((date, idx) => {
+        const key = dk(date), di = dow(date);
+        if (closed.has(key)) return;
+        const sh = shopHours(di, date, schedule.hols, schedule.closed);
+        if (!sh) return;
+        const day8 = is8Hr(sh);
+        const amKH = emps.some(e=>e.keyholder&&asgn[e.id][key]?.type==='AM');
+        const pmKH = day8?amKH:emps.some(e=>e.keyholder&&asgn[e.id][key]?.type==='PM');
+        const amCnt = emps.filter(e=>asgn[e.id][key]?.type==='AM').length;
+        const pmCnt = day8?amCnt:emps.filter(e=>asgn[e.id][key]?.type==='PM').length;
+        const noLow = !emps.some(e=>canFillLower(e)&&asgn[e.id][key]);
+        const d = DS[di]+' '+date.getDate();
+        if (!amKH) gaps.push(`${d}: no opening keyholder`);
+        if (!pmKH) gaps.push(`${d}: no closing keyholder`);
+        if (amCnt<2) gaps.push(`${d}: only ${amCnt} opener(s)`);
+        if (pmCnt<2) gaps.push(`${d}: only ${pmCnt} closer(s)`);
+        if (noLow)   gaps.push(`${d}: no lower-capable tech`);
+      });
+      if (gaps.length) lines.push(`   ⚠ Coverage gaps: ${gaps.join('; ')}`);
+      lines.push('');
+    });
+  } else {
+    lines.push('(No schedule generated yet for the selected month.)');
+  }
+
+  // Time-off requests
+  const mo2 = parseInt(document.getElementById('sel-month')?.value) || new Date().getMonth()+1;
+  const yr2 = parseInt(document.getElementById('sel-year')?.value)  || new Date().getFullYear();
+  const prefix = `${yr2}-${String(mo2).padStart(2,'0')}`;
+  const toLines = [];
+  emps.forEach(emp => {
+    if (!timeOff[emp.id]) return;
+    const days = [...timeOff[emp.id]].filter(d=>d.startsWith(prefix));
+    if (days.length) {
+      const labels = days.map(d=>{ const dt=new Date(d+'T12:00'); return DS[dow(dt)]+' '+dt.getDate(); });
+      toLines.push(`${emp.name}: ${labels.join(', ')}`);
+    }
+  });
+  if (toLines.length) {
+    lines.push('=== TIME-OFF REQUESTS ===');
+    toLines.forEach(l=>lines.push(l));
+    lines.push('');
+  }
+
+  // SK rules summary
+  lines.push('=== SK EMPLOYMENT ACT (OVERTIME RULES) ===');
+  lines.push('Daily OT: after >8 hrs in a standard 8-hr scheduled day');
+  lines.push('Weekly OT (regular week): after 40 hrs');
+  lines.push('Weekly OT (holiday week): after 32 hrs');
+  lines.push('Employee receives GREATER of daily or weekly OT (not both)');
+  lines.push('OT rate: minimum 1.5× hourly wage');
+  lines.push('FT employees: min 32 hrs/week | PT employees: min 16 hrs/week');
+  lines.push('Min staffing: 1 Mgr/Supervisor + 2 Upper Techs + 1 Lower-capable Tech at all times');
+  lines.push('Min 2 employees at open AND close every operating day');
+  lines.push('A keyholder must be at every open and every close');
+
+  return lines.join('\n');
+}
+
+function appendChatMsg(role, content, isTyping=false) {
+  const history = document.getElementById('chat-history');
+  const div = document.createElement('div');
+  div.className = `chat-msg ${role==='user'?'user':role==='system'?'system':'ai'}`;
+  if (isTyping) div.id = 'typing-indicator';
+
+  if (role === 'system') {
+    div.innerHTML = `<div class="chat-bubble">${content}</div>`;
+  } else if (role === 'user') {
+    div.innerHTML = `<div class="chat-avatar">You</div><div class="chat-bubble">${escHtml(content)}</div>`;
+  } else {
+    const body = isTyping
+      ? `<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>`
+      : markdownToHtml(content);
+    div.innerHTML = `<div class="chat-avatar">AI</div><div class="chat-bubble">${body}</div>`;
+  }
+  history.appendChild(div);
+  history.scrollTop = history.scrollHeight;
+  return div;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+// Simple markdown → HTML for AI responses
+function markdownToHtml(text) {
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`(.+?)`/g,'<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:11px;">$1</code>')
+    .replace(/^### (.+)$/gm,'<div style="font-weight:bold;color:#6D28D9;margin-top:8px;margin-bottom:2px;">$1</div>')
+    .replace(/^## (.+)$/gm,'<div style="font-weight:bold;font-size:14px;margin-top:8px;margin-bottom:2px;">$1</div>')
+    .replace(/^- (.+)$/gm,'<div style="padding-left:12px;">• $1</div>')
+    .replace(/^\d+\. (.+)$/gm,'<div style="padding-left:12px;">$1</div>')
+    .replace(/\n{2,}/g,'<br><br>')
+    .replace(/\n/g,'<br>');
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  // Disable controls
+  input.value = '';
+  input.style.height = 'auto';
+  input.disabled = true;
+  document.getElementById('chat-send-btn').disabled = true;
+
+  // Show user message
+  appendChatMsg('user', text);
+  chatHistory.push({role:'user', content: text});
+
+  // Show typing indicator
+  const typingEl = appendChatMsg('ai', '', true);
+
+  try {
+    const systemPrompt = `You are a helpful scheduling assistant for Mr. Lube + Tires, a quick lube and tire shop in Saskatchewan, Canada. You have full context about the shop's employees, schedule, budget, and Saskatchewan Employment Act requirements.
+
+Here is the current state of the scheduler:
+
+${buildScheduleContext()}
+
+Guidelines:
+- Be concise and practical — managers are busy
+- Reference specific employee names, hours, and dates from the context when relevant
+- If something looks wrong (coverage gap, below-minimum hours, potential OT), flag it clearly
+- You know Saskatchewan Employment Act overtime rules — cite them accurately when asked
+- If asked to make changes to the schedule, explain what to do in the Preview tab (click cells to edit)
+- If no schedule has been generated yet, encourage the user to go to the Generate tab`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: chatHistory
+      })
+    });
+
+    const data = await response.json();
+    const reply = data.content?.[0]?.text || 'Sorry, I couldn\'t get a response. Please try again.';
+    chatHistory.push({role:'assistant', content: reply});
+
+    // Replace typing indicator with real response
+    typingEl.remove();
+    appendChatMsg('ai', reply);
+
+  } catch (err) {
+    typingEl.remove();
+    appendChatMsg('system', '⚠ Could not reach the AI. Check your internet connection and try again.');
+    chatHistory.pop(); // remove user message so they can retry
+  }
+
+  // Re-enable controls
+  input.disabled = false;
+  document.getElementById('chat-send-btn').disabled = false;
+  input.focus();
+}
+
+function sendSuggestion(btn) {
+  document.getElementById('chat-input').value = btn.textContent;
+  sendChat();
+}
+
+function clearChat() {
+  chatHistory = [];
+  const h = document.getElementById('chat-history');
+  h.innerHTML = `<div class="chat-msg system">
+    <div class="chat-bubble">Chat cleared. Ask me anything about your schedule, employees, coverage, or SK labor rules.</div>
+  </div>`;
+}
+
+// ════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════════════════
+const TAB_KEYS = ['setup','timeoff','generate','preview','rules','chat'];
+function showTab(id){
+  document.querySelectorAll('.tb').forEach((b,i)=>b.classList.toggle('on',TAB_KEYS[i]===id));
+  document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
+  document.getElementById('pnl-'+id).classList.add('on');
+  if (id==='timeoff') renderTimeOff();
+  if (id==='generate') updateStats();
+  if (id==='chat') document.getElementById('chat-input')?.focus();
+}
+
+let _ft=null;
+function flash(msg){
+  const el=document.getElementById('flash');
+  el.textContent=msg; el.style.display='block';
+  if(_ft)clearTimeout(_ft); _ft=setTimeout(()=>el.style.display='none',4500);
+}
+
+// ════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════
+// Populate month dropdowns
+['sel-month','to-month'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(!el)return;
+  const cur=new Date().getMonth();
+  el.innerHTML=MONTHS.map((m,i)=>`<option value="${i+1}" ${i===cur?'selected':''}>${m}</option>`).join('');
+});
+
+loadAll();        // restore from localStorage
+renderEmpTable();
+renderRevGrid();
+updateStats();
+</script>
+</body>
+</html>
