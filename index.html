@@ -392,10 +392,19 @@ input[type=text],input[type=number],select{padding:5px 8px;border:1px solid #ccc
 // CONSTANTS
 // ════════════════════════════════════════════════════════════════
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const DS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+// DOW indices align to PAYROLL WEEK: Saturday=0, Sunday=1, Monday=2, ..., Friday=6
+const DS = ["Sat","Sun","Mon","Tue","Wed","Thu","Fri"];
 const ROLES = ["Manager","Supervisor","Upper Tech","Lower Tech"];
-// Regular shop hours by day-of-week index (0=Mon, 6=Sun)
-const SHOP = {0:{o:8,c:19},1:{o:8,c:19},2:{o:8,c:19},3:{o:8,c:19},4:{o:8,c:19},5:{o:8,c:18},6:{o:9,c:17}};
+// Shop hours indexed to payroll DOW (Sat=0, Sun=1, Mon=2, Tue=3, Wed=4, Thu=5, Fri=6)
+const SHOP = {
+  0:{o:8,c:18},  // Sat 8am-6pm
+  1:{o:9,c:17},  // Sun 9am-5pm
+  2:{o:8,c:19},  // Mon 8am-7pm
+  3:{o:8,c:19},  // Tue
+  4:{o:8,c:19},  // Wed
+  5:{o:8,c:19},  // Thu
+  6:{o:8,c:19},  // Fri
+};
 const LS_KEY = 'ql_v3';
 
 // ════════════════════════════════════════════════════════════════
@@ -466,7 +475,8 @@ function loadAll() {
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 const dk  = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-const dow = d => (d.getDay()+6)%7; // 0=Mon 6=Sun
+// Convert JS Date.getDay() (Sun=0,Mon=1...Sat=6) → payroll DOW (Sat=0,Sun=1,Mon=2...Fri=6)
+const dow = d => (d.getDay()+1)%7;
 const fhS = h => (h>12?h-12:h===0?12:h)+(h>=12?'p':'a');
 
 function isActive(emp) {
@@ -526,6 +536,7 @@ function is8Hr(sh){ return sh && (sh.c - sh.o) <= 8; }
 
 function getWeeks(y,mo){
   const first=new Date(y,mo-1,1),last=new Date(y,mo,0);
+  // Walk back to the Saturday on or before the 1st of the month (payroll week starts Sat)
   const start=new Date(first); start.setDate(first.getDate()-dow(first));
   const weeks=[]; let cur=new Date(start);
   while(cur<=last){
