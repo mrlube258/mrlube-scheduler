@@ -181,9 +181,16 @@ input[type=text],input[type=number],select{padding:5px 8px;border:1px solid #ccc
           <th style="text-align:center;">FT / PT</th>
           <th style="text-align:center;">Flex Tech?</th>
           <th style="text-align:center;">Keyholder?</th>
+          <th style="text-align:center;width:30px;"></th>
         </tr></thead>
         <tbody id="emp-tbody"></tbody>
       </table>
+    </div>
+    <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <button class="btn bg" onclick="addEmployee()" style="padding:8px 14px;">
+        <span style="font-size:16px;line-height:1;">+</span> Add Employee
+      </button>
+      <span id="emp-count" style="font-size:11px;color:#888;"></span>
     </div>
     <div class="hint">
       <strong>FT (Full-Time)</strong> = min 32 hrs/week · <strong>PT (Part-Time)</strong> = min 16 hrs/week.<br>
@@ -950,8 +957,9 @@ function renderEmpTable(){
     const act=isActive(emp);
     return`<tr class="${act?'':'na-row'}">
       <td style="color:#888;width:22px;">${emp.id}</td>
-      <td><input type="text" value="${emp.name}"
-        oninput="employees[${i}].name=this.value;renderEmpTable();saveAll();"
+      <td><input type="text" value="${emp.name.replace(/"/g,'&quot;')}"
+        oninput="employees[${i}].name=this.value;saveAll();"
+        onblur="updateRowActive(${i})"
         style="width:145px;${act?'':'color:#bbb;'}"></td>
       <td><select onchange="employees[${i}].role=this.value;saveAll();" ${act?'':'disabled'}
         style="color:${act?'#0000CC':'#bbb'};">
@@ -959,16 +967,16 @@ function renderEmpTable(){
       </select></td>
       <td><input type="number" value="${emp.rate}" step="0.25"
         style="width:70px;${act?'':'color:#bbb;'}" ${act?'':'disabled'}
-        onchange="employees[${i}].rate=parseFloat(this.value)||0;saveAll();"></td>
+        oninput="employees[${i}].rate=parseFloat(this.value)||0;saveAll();"></td>
       <td style="text-align:center;">${act?`
-        <button id="ftbtn${i}" class="${emp.empType==='FT'?'ftbtn':'ptbtn'}"
+        <button class="${emp.empType==='FT'?'ftbtn':'ptbtn'}"
           onclick="employees[${i}].empType=employees[${i}].empType==='FT'?'PT':'FT';
             this.textContent=employees[${i}].empType;
             this.className=employees[${i}].empType==='FT'?'ftbtn':'ptbtn';saveAll();">
           ${emp.empType||'FT'}
         </button>`:'<span style="color:#ccc;font-size:11px;">—</span>'}</td>
       <td style="text-align:center;">${act?`
-        <button id="flxbtn${i}" class="${emp.flex?'flxbtn':'flxno'}"
+        <button class="${emp.flex?'flxbtn':'flxno'}"
           onclick="employees[${i}].flex=!employees[${i}].flex;
             this.textContent=employees[${i}].flex?'✦ Flex':'Flex?';
             this.className=employees[${i}].flex?'flxbtn':'flxno';saveAll();"
@@ -976,14 +984,71 @@ function renderEmpTable(){
           ${emp.flex?'✦ Flex':'Flex?'}
         </button>`:'<span style="color:#ccc;font-size:11px;">—</span>'}</td>
       <td style="text-align:center;">${act?`
-        <button id="khbtn${i}" class="${emp.keyholder?'kyes':'kno'}"
+        <button class="${emp.keyholder?'kyes':'kno'}"
           onclick="employees[${i}].keyholder=!employees[${i}].keyholder;
             this.textContent=employees[${i}].keyholder?'🔑 Yes':'No';
             this.className=employees[${i}].keyholder?'kyes':'kno';saveAll();">
           ${emp.keyholder?'🔑 Yes':'No'}
         </button>`:'<span style="color:#ccc;font-size:11px;">—</span>'}</td>
+      <td style="text-align:center;">
+        <button onclick="removeEmployee(${i})" title="Remove this employee"
+          style="background:none;border:none;color:#C00;font-size:16px;cursor:pointer;padding:2px 6px;">×</button>
+      </td>
     </tr>`;
   }).join('');
+  // Update count display
+  const countEl = document.getElementById('emp-count');
+  if (countEl) {
+    const total = employees.length;
+    const active = actEmps().length;
+    countEl.textContent = `${active} active employee${active!==1?'s':''} · ${total} total slot${total!==1?'s':''}`;
+  }
+}
+
+// Update only the row's CSS class and disabled-state when name changes
+// (without rebuilding the whole table — preserves input focus while typing)
+function updateRowActive(i){
+  renderEmpTable(); // safe to call now since user has clicked away
+  saveAll();
+}
+
+// Add a new blank employee slot
+function addEmployee(){
+  const nextId = employees.length > 0 ? Math.max(...employees.map(e=>e.id)) + 1 : 1;
+  employees.push({
+    id: nextId,
+    name: '',
+    role: 'Lower Tech',
+    rate: 15.00,
+    keyholder: false,
+    empType: 'FT',
+    flex: false
+  });
+  renderEmpTable();
+  saveAll();
+  // Focus the new row's name field so user can type immediately
+  setTimeout(()=>{
+    const inputs = document.querySelectorAll('#emp-tbody input[type=text]');
+    if (inputs.length > 0) inputs[inputs.length - 1].focus();
+  }, 50);
+  flash('✅ New employee row added — type their name to activate.');
+}
+
+// Remove an employee — confirms first if they have a name
+function removeEmployee(i){
+  const emp = employees[i];
+  if (!emp) return;
+  const hasName = (emp.name || '').trim() !== '';
+  if (hasName) {
+    if (!confirm(`Remove ${emp.name} from the roster?\n\nThis will also delete their time-off requests. The action cannot be undone.`)) return;
+    // Clean up time-off entries for this employee
+    delete timeOff[emp.id];
+  }
+  employees.splice(i, 1);
+  renderEmpTable();
+  saveAll();
+  updateStats();
+  flash(hasName ? `✅ ${emp.name} removed from roster.` : '✅ Empty row removed.');
 }
 
 function renderRevGrid(){
@@ -992,7 +1057,7 @@ function renderRevGrid(){
       <label>${mo}:</label>
       <span style="color:#888;font-size:13px;">$</span>
       <input type="number" value="${revenues[mo]||''}" placeholder="0" style="width:115px;"
-        onchange="revenues['${mo}']=parseInt(this.value)||0;saveAll();updateStats()">
+        oninput="revenues['${mo}']=parseInt(this.value)||0;saveAll();updateStats()">
     </div>`).join('');
 }
 
