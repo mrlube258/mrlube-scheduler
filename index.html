@@ -155,6 +155,7 @@ input[type=text],input[type=number],select{padding:5px 8px;border:1px solid #ccc
   <button class="tb" onclick="showTab('timeoff')">📆 Time Off</button>
   <button class="tb" onclick="showTab('generate')">📅 Generate</button>
   <button class="tb" onclick="showTab('preview')">📋 Preview</button>
+  <button class="tb" onclick="showTab('saved')">🗂 Saved</button>
   <button class="tb" onclick="showTab('rules')">⚖ SK Rules</button>
   <button class="tb" onclick="showTab('chat')" style="background:#6D28D9;color:white;">💬 Ask AI</button>
 </div>
@@ -206,6 +207,21 @@ input[type=text],input[type=number],select{padding:5px 8px;border:1px solid #ccc
   </div>
 
   <div style="font-size:12px;color:#888;margin-top:4px;">💾 All changes save automatically to your browser.</div>
+
+  <div class="card" style="border-left:4px solid #0E7490;">
+    <div class="ct" style="color:#0E7490;">💾 Backup &amp; Restore</div>
+    <div class="ibox" style="margin-bottom:12px;">
+      Your data lives in <strong>this browser only</strong>. To protect against a cleared cache, a new computer, or to copy your setup to another store, export a backup file. It contains everything — roster, pay rates, revenues, time-off, and every saved schedule.
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <button class="btn" style="background:#0E7490;color:white;" onclick="exportAllData()">⬇ Backup All Data</button>
+      <label class="btn" style="background:#fff;border:2px solid #0E7490;color:#0E7490;cursor:pointer;">
+        ⬆ Restore From Backup
+        <input type="file" accept="application/json,.json" style="display:none;" onchange="importAllData(this)">
+      </label>
+      <span style="font-size:11px;color:#888;">Tip: back up after finalizing each month's schedule.</span>
+    </div>
+  </div>
 </div>
 
 <!-- ══ TIME OFF ══ -->
@@ -272,6 +288,7 @@ input[type=text],input[type=number],select{padding:5px 8px;border:1px solid #ccc
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn bb" onclick="downloadExcel()">⬇ Excel</button>
           <button class="btn bo" onclick="printSchedule()">🖨 Finalize &amp; Print</button>
+          <button class="btn" style="background:#0E7490;color:white;" onclick="shareSchedule()">📤 Share</button>
         </div>
       </div>
       <div class="legend">
@@ -284,6 +301,30 @@ input[type=text],input[type=number],select{padding:5px 8px;border:1px solid #ccc
         <span style="color:#5B0080;font-weight:bold;">🔑 = Keyholder</span>
       </div>
     </div>
+
+    <!-- Last-minute change / departure panel -->
+    <div class="card" style="border-left:4px solid #D97706;">
+      <div style="font-weight:bold;color:#92400E;font-size:13px;margin-bottom:4px;">⚡ Last-minute change</div>
+      <div style="font-size:11px;color:#888;margin-bottom:10px;">Someone called out, quit, or needs time off after the schedule was posted? Clear their shifts here, then optionally auto-refill the gaps. Your other manual edits stay intact.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">Employee</label>
+          <select id="lmc-emp" style="padding:6px 10px;font-size:13px;border:1px solid #ccc;border-radius:6px;color:#0000CC;"></select>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">From</label>
+          <input type="date" id="lmc-from" style="padding:6px 8px;font-size:13px;border:1px solid #ccc;border-radius:6px;color:#0000CC;">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:#666;margin-bottom:3px;">To</label>
+          <input type="date" id="lmc-to" style="padding:6px 8px;font-size:13px;border:1px solid #ccc;border-radius:6px;color:#0000CC;">
+        </div>
+        <button class="btn" style="background:#dc3545;color:white;" onclick="lmcClear(false)">Clear their shifts</button>
+        <button class="btn bg" onclick="lmcClear(true)">Clear + auto-refill gaps</button>
+      </div>
+      <div id="lmc-result" style="font-size:12px;margin-top:8px;"></div>
+    </div>
+
     <div id="weekly-grids"></div>
   </div>
 </div>
@@ -330,37 +371,62 @@ input[type=text],input[type=number],select{padding:5px 8px;border:1px solid #ccc
 </div>
 
 <!-- ══ CHAT ══ -->
+<!-- ══ SAVED SCHEDULES ══ -->
+<div class="pnl" id="pnl-saved">
+  <div class="card">
+    <div class="ct">🗂 Saved Schedules</div>
+    <div class="ibox" style="margin-bottom:12px;">
+      Every schedule you generate or edit is saved automatically in this browser, keyed by month. Reopen any month to adjust shifts, handle a last-minute call-out, or process someone leaving — all your manual edits are preserved. For a permanent backup you can move between computers or stores, use <strong>Backup&nbsp;All&nbsp;Data</strong> in the Setup tab.
+    </div>
+    <div id="saved-list"></div>
+  </div>
+</div>
+
+<!-- ══ CHAT ══ -->
 <div class="pnl" id="pnl-chat">
-  <div class="card" style="padding:14px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <div>
-        <div style="font-weight:bold;color:#6D28D9;font-size:15px;">💬 Ask AI about your schedule</div>
-        <div style="font-size:11px;color:#888;margin-top:2px;">Powered by Claude · Knows your employees, schedule, budget &amp; SK labor rules</div>
+  <div class="card">
+    <div class="ct" style="color:#6D28D9;">💬 Ask AI about your schedule</div>
+    <div class="ibox" style="margin-bottom:14px;">
+      This copies a complete, AI-ready summary of your current schedule — every employee, shift, hours, budget, coverage gaps, and the SK labor rules — to your clipboard. Paste it into <strong>free Claude</strong> and ask anything. No account setup, no API key, no cost.
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="background:#F5F3FF;border:1px solid #C4B5FD;border-radius:10px;padding:16px;">
+        <div style="font-weight:bold;color:#5B21B6;margin-bottom:8px;">Step 1 — Copy your schedule</div>
+        <button class="btn" style="background:#6D28D9;color:white;font-size:15px;padding:12px 22px;width:100%;justify-content:center;" onclick="copyForClaude()">
+          📋 Copy schedule context for AI
+        </button>
+        <div id="copy-status" style="font-size:12px;color:#375623;margin-top:8px;text-align:center;min-height:16px;"></div>
       </div>
-      <button class="btn" style="background:#eee;color:#555;padding:6px 12px;font-size:12px;" onclick="clearChat()">Clear chat</button>
-    </div>
-    <div class="chat-suggestions" id="chat-suggestions">
-      <span style="font-size:11px;color:#888;align-self:center;">Try asking:</span>
-      <button class="chat-sug" onclick="sendSuggestion(this)">Why does an employee have low hours this week?</button>
-      <button class="chat-sug" onclick="sendSuggestion(this)">Which days have coverage gaps?</button>
-      <button class="chat-sug" onclick="sendSuggestion(this)">Who are my keyholders and when do they work?</button>
-      <button class="chat-sug" onclick="sendSuggestion(this)">Am I over or under budget this month?</button>
-      <button class="chat-sug" onclick="sendSuggestion(this)">Explain SK overtime rules for my team</button>
-      <button class="chat-sug" onclick="sendSuggestion(this)">Which employees are full-time vs part-time?</button>
-    </div>
-    <div class="chat-wrap">
-      <div class="chat-history" id="chat-history">
-        <div class="chat-msg system">
-          <div class="chat-bubble">Hi! I have full context about your Mr. Lube + Tires schedule, employees, budget, and Saskatchewan labor rules. Ask me anything.</div>
+
+      <div style="background:#F5F3FF;border:1px solid #C4B5FD;border-radius:10px;padding:16px;">
+        <div style="font-weight:bold;color:#5B21B6;margin-bottom:8px;">Step 2 — Open Claude &amp; paste</div>
+        <a href="https://claude.ai/new" target="_blank" class="btn" style="background:#fff;border:2px solid #6D28D9;color:#6D28D9;font-size:14px;padding:10px 18px;width:100%;justify-content:center;text-decoration:none;">
+          ↗ Open Claude.ai in a new tab
+        </a>
+        <div style="font-size:12px;color:#666;margin-top:8px;line-height:1.6;">
+          Paste (Ctrl+V / Cmd+V), then add your question on the next line — for example:
         </div>
       </div>
-      <div class="chat-input-row">
-        <textarea id="chat-input" placeholder="Ask a question about the schedule, employees, coverage, overtime rules…" rows="1"
-          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"
-          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
-        <button class="chat-send" id="chat-send-btn" onclick="sendChat()">Send ↑</button>
+
+      <div style="background:#fff;border:1px solid #e0e8f0;border-radius:10px;padding:14px;">
+        <div style="font-weight:bold;color:#1F3864;font-size:13px;margin-bottom:8px;">💡 Questions to try</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          ${[
+            'Which days this month have coverage gaps, and who could fill them without going into overtime?',
+            'Is anyone scheduled below their minimum hours? What would you change?',
+            'Walk me through whether this schedule is compliant with Saskatchewan overtime rules.',
+            'If revenue came in 10% below last year, where should I trim hours first?',
+            'Which employee is my most/least utilized, and is the balance fair?',
+            'My Monday opener just quit — who should I move into that slot and why?'
+          ].map(q=>`<div style="font-size:12px;color:#444;padding:7px 11px;background:#f8fafc;border-radius:6px;border-left:3px solid #6D28D9;">"${q}"</div>`).join('')}
+        </div>
       </div>
-      <div style="font-size:10px;color:#bbb;margin-top:6px;text-align:center;">Enter to send · Shift+Enter for new line · Responses are AI-generated — always verify important decisions</div>
+
+      <div style="font-size:11px;color:#999;text-align:center;line-height:1.6;">
+        Tip: the copied summary reflects the schedule currently open in the Preview tab. Make your edits first, then copy.<br>
+        AI responses are suggestions — always apply your own judgment before changing a posted schedule.
+      </div>
     </div>
   </div>
 </div>
@@ -469,6 +535,172 @@ function loadAll() {
   } catch(e) {
     document.getElementById('save-status').textContent = '⚠ Could not load saved data';
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+// SCHEDULE PERSISTENCE — saves generated schedules (incl. manual edits)
+// Keyed by "YYYY-MM". Stores only primitives + asgn + emps snapshot;
+// weeks / holidays / aggregations are rebuilt on load (no Date/Set in storage).
+// ════════════════════════════════════════════════════════════════
+const SCHED_KEY = 'ql_schedules_v1';
+
+function loadSchedStore() {
+  try { return JSON.parse(localStorage.getItem(SCHED_KEY)) || {}; }
+  catch(e) { return {}; }
+}
+function writeSchedStore(store) {
+  try { localStorage.setItem(SCHED_KEY, JSON.stringify(store)); return true; }
+  catch(e) {
+    alert('Could not save schedule — browser storage may be full. Use Backup All Data in Setup to export a copy.');
+    return false;
+  }
+}
+function schedKeyFor(year, month) { return year + '-' + String(month).padStart(2,'0'); }
+
+// Persist the CURRENT in-memory schedule (called after generate + every edit)
+function persistCurrentSchedule() {
+  if (!schedule) return;
+  const {year, month, budget, asgn, emps} = schedule;
+  const store = loadSchedStore();
+  const key = schedKeyFor(year, month);
+  const totalCost = (schedule.wkResults||[]).reduce((a,w)=>a+(w.budUsed||0),0);
+  store[key] = {
+    year, month, budget,
+    asgn,                                   // {empId:{dateKey:shift}} — pure JSON
+    emps: emps.map(e=>({...e})),            // snapshot of roster used
+    savedAt: new Date().toISOString(),
+    totalCost
+  };
+  writeSchedStore(store);
+  renderSavedList();
+}
+
+// Rebuild a full schedule object from a saved record
+function rehydrateSchedule(saved) {
+  const {year, month, budget, asgn, emps} = saved;
+  const weeks  = getWeeks(year, month);
+  const hols   = getSKHols(year);
+  const closed = getClosedDays(year);
+  const wBudget = budget / weeks.length;
+  const wkResults = [];
+  weeks.forEach((week, wi) => {
+    const inMo = week.filter(d=>d.getMonth()===month-1);
+    const hasHol = inMo.some(d=>hols.has(dk(d)));
+    const maxHrs = hasHol ? 32 : 40;
+    const daysAvail = inMo.filter(d=>!closed.has(dk(d))).length;
+    wkResults.push({week, wi, wHrs:{}, budUsed:0, wBudget, hasHol, maxHrs, empOT:{}, minWarn:{}, daysAvail});
+  });
+  // Ensure every saved employee has an asgn bucket
+  const asgnFixed = {...asgn};
+  emps.forEach(e => { if (!asgnFixed[e.id]) asgnFixed[e.id] = {}; });
+  schedule = {asgn:asgnFixed, weeks, wkResults, hols, closed, year, month, budget, emps};
+  // Recompute hours/cost/OT/min for every week from the saved asgn
+  weeks.forEach((_, wi) => recalcWeek(wi));
+  return schedule;
+}
+
+function openSavedSchedule(key) {
+  const store = loadSchedStore();
+  const saved = store[key];
+  if (!saved) { flash('⚠ That saved schedule could not be found.'); return; }
+  rehydrateSchedule(saved);
+  renderPreview();
+  showTab('preview');
+  flash('✅ Opened ' + MONTHS[saved.month-1] + ' ' + saved.year + ' — edits will save automatically.');
+}
+
+function deleteSavedSchedule(key) {
+  const store = loadSchedStore();
+  const saved = store[key];
+  if (!saved) return;
+  if (!confirm('Delete the saved schedule for ' + MONTHS[saved.month-1] + ' ' + saved.year + '?\n\nThis cannot be undone (your backup file, if any, is unaffected).')) return;
+  delete store[key];
+  writeSchedStore(store);
+  renderSavedList();
+  flash('🗑 Deleted ' + MONTHS[saved.month-1] + ' ' + saved.year + '.');
+}
+
+function renderSavedList() {
+  const el = document.getElementById('saved-list');
+  if (!el) return;
+  const store = loadSchedStore();
+  const keys = Object.keys(store).sort().reverse();
+  if (keys.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">No saved schedules yet. Generate a schedule in the <strong>Generate</strong> tab and it will appear here automatically.</div>';
+    return;
+  }
+  el.innerHTML = `<div class="ox"><table>
+    <thead><tr><th>Month</th><th>Last Saved</th><th>Employees</th><th>Total Cost</th><th>Budget</th><th style="text-align:center;">Actions</th></tr></thead>
+    <tbody>${keys.map(k=>{
+      const s = store[k];
+      const active = (s.emps||[]).filter(e=>{const n=(e.name||'').trim().toUpperCase();return n&&n!=='NA'&&n!=='N/A';}).length;
+      const cost = s.totalCost||0;
+      const over = cost > s.budget*1.02;
+      const dt = new Date(s.savedAt);
+      const when = dt.toLocaleDateString('en-CA',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-CA',{hour:'numeric',minute:'2-digit'});
+      return `<tr>
+        <td style="font-weight:bold;color:#1F3864;">${MONTHS[s.month-1]} ${s.year}</td>
+        <td style="color:#666;font-size:12px;">${when}</td>
+        <td style="text-align:center;">${active}</td>
+        <td style="font-weight:bold;color:${over?'#C00':'#375623'};">$${cost.toLocaleString('en',{maximumFractionDigits:0})}</td>
+        <td style="color:#666;">$${(s.budget||0).toLocaleString('en',{maximumFractionDigits:0})}</td>
+        <td style="text-align:center;white-space:nowrap;">
+          <button class="btn bb" style="padding:5px 12px;font-size:12px;" onclick="openSavedSchedule('${k}')">Open &amp; Edit</button>
+          <button class="btn" style="padding:5px 10px;font-size:12px;background:#dc3545;color:white;" onclick="deleteSavedSchedule('${k}')">Delete</button>
+        </td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+// ════════════════════════════════════════════════════════════════
+// BACKUP / RESTORE — export & import ALL data as one JSON file
+// (settings + roster + revenues + time-off + every saved schedule)
+// This is the durable cross-device / cross-store backup.
+// ════════════════════════════════════════════════════════════════
+function exportAllData() {
+  const payload = {
+    app: 'MrLubeTires_Scheduler',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    settings: localStorage.getItem(LS_KEY),
+    schedules: localStorage.getItem(SCHED_KEY)
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const stamp = new Date().toISOString().slice(0,10);
+  a.download = 'MrLubeTires_Backup_' + stamp + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  flash('✅ Backup downloaded — keep this file safe.');
+}
+
+function importAllData(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data || data.app !== 'MrLubeTires_Scheduler') {
+        alert('That does not look like a Mr. Lube + Tires backup file.'); return;
+      }
+      if (!confirm('Restore this backup?\n\nThis REPLACES all current data in this browser (roster, revenues, time-off, and saved schedules) with the contents of the file. Consider exporting a backup of the current state first.')) {
+        input.value = ''; return;
+      }
+      if (data.settings) localStorage.setItem(LS_KEY, data.settings);
+      else localStorage.removeItem(LS_KEY);
+      if (data.schedules) localStorage.setItem(SCHED_KEY, data.schedules);
+      else localStorage.removeItem(SCHED_KEY);
+      flash('✅ Backup restored — reloading…');
+      setTimeout(()=>location.reload(), 800);
+    } catch(err) {
+      alert('Could not read that file. It may be corrupted or not a valid backup.');
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1209,10 +1441,11 @@ function runGenerate(){
   btn.textContent='⏳ Building…'; btn.disabled=true;
   setTimeout(()=>{
     schedule=buildSchedule(yr,mo,rev*rate);
+    persistCurrentSchedule();
     renderPreview();
     btn.textContent='▶ Generate Schedule'; btn.disabled=false;
     showTab('preview');
-    flash('✅ Schedule built for '+MONTHS[mo-1]+' '+yr);
+    flash('✅ Schedule built & saved for '+MONTHS[mo-1]+' '+yr);
   },60);
 }
 
@@ -1223,6 +1456,7 @@ function renderPreview(){
   if(!schedule)return;
   document.getElementById('prev-empty').style.display='none';
   document.getElementById('prev-content').style.display='block';
+  populateLmcControls();
   const{asgn,weeks,wkResults,hols,closed,year,month,budget,emps}=schedule;
   const moName=MONTHS[month-1];
 
@@ -1471,6 +1705,7 @@ function saveCell() {
   };
 
   recalcWeek(wi);
+  persistCurrentSchedule();
   closeModal();
   renderPreview();
   flash('✅ Shift saved — ' + (emp?.name || '') + ' ' + label);
@@ -1483,9 +1718,196 @@ function clearCell() {
   const emp = schedule.emps.find(e => e.id == empId);
   delete schedule.asgn[empId][dateKey];
   recalcWeek(wi);
+  persistCurrentSchedule();
   closeModal();
   renderPreview();
   flash('✅ Shift removed — ' + (emp?.name || ''));
+}
+
+// ════════════════════════════════════════════════════════════════
+// LAST-MINUTE CHANGE — clear an employee's shifts in a date range,
+// optionally auto-refill resulting coverage gaps (preserves other edits)
+// ════════════════════════════════════════════════════════════════
+function populateLmcControls() {
+  if (!schedule) return;
+  const sel = document.getElementById('lmc-emp');
+  if (!sel) return;
+  sel.innerHTML = schedule.emps.map(e=>`<option value="${e.id}">${e.name} (${e.role})</option>`).join('');
+  // Default range = whole month
+  const {year, month} = schedule;
+  const first = `${year}-${String(month).padStart(2,'0')}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const last = `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  const fromEl = document.getElementById('lmc-from'), toEl = document.getElementById('lmc-to');
+  if (fromEl && !fromEl.value) fromEl.value = first;
+  if (toEl && !toEl.value) toEl.value = last;
+  document.getElementById('lmc-result').innerHTML = '';
+}
+
+function lmcClear(refill) {
+  if (!schedule) return;
+  const empId = parseInt(document.getElementById('lmc-emp').value);
+  const fromV = document.getElementById('lmc-from').value;
+  const toV   = document.getElementById('lmc-to').value;
+  if (!fromV || !toV) { document.getElementById('lmc-result').innerHTML = '<span style="color:#C00;">Please choose a date range.</span>'; return; }
+  const emp = schedule.emps.find(e=>e.id===empId);
+  const from = new Date(fromV+'T00:00'), to = new Date(toV+'T23:59');
+
+  // Clear the employee's shifts in range
+  let cleared = 0;
+  Object.keys(schedule.asgn[empId]||{}).forEach(key => {
+    const d = new Date(key+'T12:00');
+    if (d >= from && d <= to) { delete schedule.asgn[empId][key]; cleared++; }
+  });
+
+  let filled = 0, stillGap = 0;
+  if (refill) {
+    const res = refillGaps(from, to);
+    filled = res.filled; stillGap = res.gaps;
+  }
+
+  // Recompute every week & save
+  schedule.weeks.forEach((_, wi) => recalcWeek(wi));
+  persistCurrentSchedule();
+  renderPreview();
+  populateLmcControls();
+
+  let msg = `<span style="color:#375623;">✓ Cleared ${cleared} shift${cleared!==1?'s':''} for ${emp?.name||''}.</span>`;
+  if (refill) {
+    msg += ` <span style="color:#1F3864;">Auto-filled ${filled} gap${filled!==1?'s':''}.</span>`;
+    if (stillGap > 0) msg += ` <span style="color:#C00;">${stillGap} slot${stillGap!==1?'s':''} still uncovered — see red badges below; click any cell to assign manually.</span>`;
+  } else {
+    msg += ' <span style="color:#888;">Check the weekly grids for any new coverage gaps (red badges).</span>';
+  }
+  document.getElementById('lmc-result').innerHTML = msg;
+  flash('✅ Schedule updated & saved.');
+}
+
+// Targeted refill: only fills slots that are BELOW coverage requirements.
+// Never touches existing assignments → preserves manual edits.
+function refillGaps(from, to) {
+  const {asgn, weeks, hols, closed, month, emps} = schedule;
+  let filled = 0, gaps = 0;
+
+  weeks.forEach((week, wi) => {
+    const wr = schedule.wkResults[wi];
+    const maxHrs = wr.maxHrs;
+    // current weekly hours per emp (recompute live as we add)
+    const wHrs = {}; emps.forEach(e=>wHrs[e.id]=0);
+    week.forEach(date => {
+      if (date.getMonth()!==month-1) return;
+      const key = dk(date);
+      emps.forEach(e=>{ if (asgn[e.id]?.[key]) wHrs[e.id]+=asgn[e.id][key].hrs; });
+    });
+
+    week.forEach(date => {
+      if (date.getMonth()!==month-1) return;
+      if (date < from || date > to) return;     // only within the affected range
+      const key = dk(date), di = dow(date);
+      if (closed.has(key)) return;
+      const sh = shopHours(di, date, hols, closed);
+      if (!sh) return;
+      const day8 = is8Hr(sh);
+      const isHol = hols.has(key);
+
+      const working = type => emps.filter(e => day8 ? asgn[e.id]?.[key] : asgn[e.id]?.[key]?.type===type);
+      const anyWorking = () => emps.filter(e => asgn[e.id]?.[key]);
+      const hasKH = type => anyWorking().some(e=>e.keyholder && (day8 || asgn[e.id][key].type===type));
+
+      const canTake = e =>
+        !asgn[e.id]?.[key] &&
+        wHrs[e.id] + 8 <= maxHrs &&
+        !(timeOff[e.id] && timeOff[e.id].has(key));
+
+      const place = (e, type) => {
+        const t = day8 ? 'AM' : type;
+        const tt = shiftTimes(di, t, sh);
+        asgn[e.id][key] = {s:tt.s, e:tt.e, hrs:8, type:t, isHol,
+          keyholder:e.keyholder, label:fhSFull(tt.s)+'-'+fhSFull(tt.e),
+          cost:e.rate*8, manual:true, refilled:true};
+        wHrs[e.id]+=8; filled++;
+      };
+
+      // Requirement 1: opening keyholder
+      if (!hasKH('AM')) { const e=emps.find(x=>x.keyholder && canTake(x)); if(e) place(e,'AM'); }
+      // Requirement 2: closing keyholder (long days only; 8-hr day open=close)
+      if (!day8 && !hasKH('PM')) { const e=emps.find(x=>x.keyholder && canTake(x)); if(e) place(e,'PM'); }
+      // Requirement 3: lower-capable tech present
+      if (!anyWorking().some(canFillLower)) { const e=emps.find(x=>canFillLower(x)&&canTake(x)); if(e) place(e,'AM'); }
+      // Requirement 4: manager/supervisor present
+      if (!anyWorking().some(x=>['Manager','Supervisor'].includes(x.role))) { const e=emps.find(x=>['Manager','Supervisor'].includes(x.role)&&canTake(x)); if(e) place(e,'AM'); }
+      // Requirement 5: ≥2 openers
+      let amc = working('AM').length;
+      while (amc < 2) { const e=emps.find(x=>canTake(x)); if(!e) break; place(e,'AM'); amc++; }
+      // Requirement 6: ≥2 closers (long days)
+      if (!day8) { let pmc = working('PM').length; while (pmc < 2) { const e=emps.find(x=>canTake(x)); if(!e) break; place(e,'PM'); pmc++; } }
+
+      // Count any still-unmet hard requirements
+      const openKH = hasKH('AM'), closeKH = day8 ? hasKH('AM') : hasKH('PM');
+      const lowOK = anyWorking().some(canFillLower);
+      const amOK = working('AM').length >= 2;
+      const pmOK = day8 ? amOK : working('PM').length >= 2;
+      if (!openKH) gaps++;
+      if (!closeKH) gaps++;
+      if (!lowOK) gaps++;
+      if (!amOK) gaps++;
+      if (!pmOK) gaps++;
+    });
+  });
+
+  return {filled, gaps};
+}
+
+// ════════════════════════════════════════════════════════════════
+// SHARE — clean text version via email (mailto) or copy to clipboard
+// ════════════════════════════════════════════════════════════════
+function buildShareText() {
+  if (!schedule) return '';
+  const {asgn, weeks, wkResults, hols, closed, month, year, emps} = schedule;
+  const L = [];
+  L.push(`MR. LUBE + TIRES — ${MONTHS[month-1].toUpperCase()} ${year} SCHEDULE`);
+  L.push(`Posted ${new Date().toLocaleDateString('en-CA',{month:'long',day:'numeric',year:'numeric'})}`);
+  L.push('');
+  wkResults.forEach((wr,wi)=>{
+    const inMo = wr.week.filter(d=>d.getMonth()===month-1);
+    if (!inMo.length) return;
+    L.push(`── Week ${wi+1}: ${MONTHS[month-1]} ${inMo[0].getDate()}–${inMo[inMo.length-1].getDate()} ──`);
+    emps.forEach(emp=>{
+      const shifts = inMo.map(d=>{
+        const key = dk(d);
+        if (closed.has(key)) return null;
+        const s = asgn[emp.id]?.[key];
+        if (!s) return null;
+        return `${DS[dow(d)]} ${d.getDate()}: ${s.label}${s.keyholder?' (open/close)':''}`;
+      }).filter(Boolean);
+      if (shifts.length) L.push(`  ${emp.name}: ${shifts.join('  |  ')}`);
+    });
+    L.push('');
+  });
+  L.push('Questions? See your manager.');
+  return L.join('\n');
+}
+
+function shareSchedule() {
+  if (!schedule) { flash('⚠ Open or generate a schedule first.'); return; }
+  const text = buildShareText();
+  const subject = `Mr. Lube + Tires — ${MONTHS[schedule.month-1]} ${schedule.year} Schedule`;
+
+  // Try native share sheet first (works on most phones)
+  if (navigator.share) {
+    navigator.share({title: subject, text}).then(()=>flash('✅ Shared')).catch(()=>{});
+    return;
+  }
+  // Desktop fallback: copy to clipboard + offer email
+  navigator.clipboard.writeText(text).then(()=>{
+    const mailto = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(text);
+    if (confirm('Schedule copied to clipboard!\n\nClick OK to open a pre-filled email, or Cancel to just paste it wherever you like (text, WhatsApp, etc.).')) {
+      window.location.href = mailto;
+    }
+  }).catch(()=>{
+    // Last resort: open email directly
+    window.location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(text);
+  });
 }
 
 function recalcWeek(wi) {
@@ -1537,10 +1959,8 @@ function showModalWarn(msg) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// AI CHAT — calls Claude API with full schedule context
+// AI CONTEXT — builds a full schedule summary to copy into Claude
 // ════════════════════════════════════════════════════════════════
-let chatHistory = [];  // [{role:'user'|'assistant', content:'...'}]
-
 function buildScheduleContext() {
   const emps = actEmps();
   const lines = [];
@@ -1665,134 +2085,43 @@ function buildScheduleContext() {
   return lines.join('\n');
 }
 
-function appendChatMsg(role, content, isTyping=false) {
-  const history = document.getElementById('chat-history');
-  const div = document.createElement('div');
-  div.className = `chat-msg ${role==='user'?'user':role==='system'?'system':'ai'}`;
-  if (isTyping) div.id = 'typing-indicator';
-
-  if (role === 'system') {
-    div.innerHTML = `<div class="chat-bubble">${content}</div>`;
-  } else if (role === 'user') {
-    div.innerHTML = `<div class="chat-avatar">You</div><div class="chat-bubble">${escHtml(content)}</div>`;
-  } else {
-    const body = isTyping
-      ? `<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>`
-      : markdownToHtml(content);
-    div.innerHTML = `<div class="chat-avatar">AI</div><div class="chat-bubble">${body}</div>`;
-  }
-  history.appendChild(div);
-  history.scrollTop = history.scrollHeight;
-  return div;
+function copyForClaude() {
+  const context = buildScheduleContext();
+  const preface = "I manage a Mr. Lube + Tires shop and use a scheduling tool. Below is my current schedule with full context. Please read it, then help me with the question at the end.\n\n";
+  const prompt = preface + context + "\n\n=== MY QUESTION ===\n(type your question here)";
+  const status = document.getElementById('copy-status');
+  navigator.clipboard.writeText(prompt).then(()=>{
+    status.style.color = '#375623';
+    status.textContent = '✓ Copied! Now open Claude (Step 2) and paste, then replace the last line with your question.';
+    flash('✅ Schedule copied — paste it into Claude.');
+  }).catch(()=>{
+    // Fallback: show a textarea to copy manually
+    status.style.color = '#C00';
+    status.innerHTML = 'Auto-copy blocked by browser. <button class="btn bb" style="padding:3px 10px;font-size:11px;" onclick="showCopyFallback()">Show text to copy</button>';
+    window._claudePrompt = prompt;
+  });
 }
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-}
-
-// Simple markdown → HTML for AI responses
-function markdownToHtml(text) {
-  return text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g,'<em>$1</em>')
-    .replace(/`(.+?)`/g,'<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:11px;">$1</code>')
-    .replace(/^### (.+)$/gm,'<div style="font-weight:bold;color:#6D28D9;margin-top:8px;margin-bottom:2px;">$1</div>')
-    .replace(/^## (.+)$/gm,'<div style="font-weight:bold;font-size:14px;margin-top:8px;margin-bottom:2px;">$1</div>')
-    .replace(/^- (.+)$/gm,'<div style="padding-left:12px;">• $1</div>')
-    .replace(/^\d+\. (.+)$/gm,'<div style="padding-left:12px;">$1</div>')
-    .replace(/\n{2,}/g,'<br><br>')
-    .replace(/\n/g,'<br>');
-}
-
-async function sendChat() {
-  const input = document.getElementById('chat-input');
-  const text  = input.value.trim();
-  if (!text) return;
-
-  // Disable controls
-  input.value = '';
-  input.style.height = 'auto';
-  input.disabled = true;
-  document.getElementById('chat-send-btn').disabled = true;
-
-  // Show user message
-  appendChatMsg('user', text);
-  chatHistory.push({role:'user', content: text});
-
-  // Show typing indicator
-  const typingEl = appendChatMsg('ai', '', true);
-
-  try {
-    const systemPrompt = `You are a helpful scheduling assistant for Mr. Lube + Tires, a quick lube and tire shop in Saskatchewan, Canada. You have full context about the shop's employees, schedule, budget, and Saskatchewan Employment Act requirements.
-
-Here is the current state of the scheduler:
-
-${buildScheduleContext()}
-
-Guidelines:
-- Be concise and practical — managers are busy
-- Reference specific employee names, hours, and dates from the context when relevant
-- If something looks wrong (coverage gap, below-minimum hours, potential OT), flag it clearly
-- You know Saskatchewan Employment Act overtime rules — cite them accurately when asked
-- If asked to make changes to the schedule, explain what to do in the Preview tab (click cells to edit)
-- If no schedule has been generated yet, encourage the user to go to the Generate tab`;
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: chatHistory
-      })
-    });
-
-    const data = await response.json();
-    const reply = data.content?.[0]?.text || 'Sorry, I couldn\'t get a response. Please try again.';
-    chatHistory.push({role:'assistant', content: reply});
-
-    // Replace typing indicator with real response
-    typingEl.remove();
-    appendChatMsg('ai', reply);
-
-  } catch (err) {
-    typingEl.remove();
-    appendChatMsg('system', '⚠ Could not reach the AI. Check your internet connection and try again.');
-    chatHistory.pop(); // remove user message so they can retry
-  }
-
-  // Re-enable controls
-  input.disabled = false;
-  document.getElementById('chat-send-btn').disabled = false;
-  input.focus();
-}
-
-function sendSuggestion(btn) {
-  document.getElementById('chat-input').value = btn.textContent;
-  sendChat();
-}
-
-function clearChat() {
-  chatHistory = [];
-  const h = document.getElementById('chat-history');
-  h.innerHTML = `<div class="chat-msg system">
-    <div class="chat-bubble">Chat cleared. Ask me anything about your schedule, employees, coverage, or SK labor rules.</div>
-  </div>`;
+function showCopyFallback() {
+  const ta = document.createElement('textarea');
+  ta.value = window._claudePrompt || buildScheduleContext();
+  ta.style.cssText = 'position:fixed;top:5%;left:5%;width:90%;height:80%;z-index:9999;padding:12px;font-size:12px;border:3px solid #6D28D9;border-radius:8px;';
+  ta.onblur = ()=>ta.remove();
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
 }
 
 // ════════════════════════════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════════════════════════════
-const TAB_KEYS = ['setup','timeoff','generate','preview','rules','chat'];
+const TAB_KEYS = ['setup','timeoff','generate','preview','saved','rules','chat'];
 function showTab(id){
   document.querySelectorAll('.tb').forEach((b,i)=>b.classList.toggle('on',TAB_KEYS[i]===id));
   document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
   document.getElementById('pnl-'+id).classList.add('on');
   if (id==='timeoff') renderTimeOff();
   if (id==='generate') updateStats();
-  if (id==='chat') document.getElementById('chat-input')?.focus();
+  if (id==='saved') renderSavedList();
 }
 
 let _ft=null;
@@ -1817,6 +2146,7 @@ loadAll();        // restore from localStorage
 renderEmpTable();
 renderRevGrid();
 updateStats();
+renderSavedList(); // populate saved schedules list
 </script>
 </body>
 </html>
