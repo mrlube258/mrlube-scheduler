@@ -144,7 +144,15 @@ input[type=text],input[type=number],select{padding:5px 8px;border:1px solid #ccc
     <h1>🔧 Mr. Lube + Tires Staff Scheduler</h1>
     <p>Saskatchewan Employment Act Compliant · Keyholder Enforced · Auto-saves your data</p>
   </div>
-  <div style="text-align:right;">
+  <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:11px;opacity:.8;">I am:</span>
+      <select id="role-select" onchange="setRole(this.value)"
+        style="padding:3px 8px;font-size:12px;font-weight:bold;border-radius:6px;border:none;color:#1F3864;cursor:pointer;">
+        <option value="manager">👤 Manager</option>
+        <option value="owner">👑 Owner / Approver</option>
+      </select>
+    </div>
     <div class="flash" id="flash"></div>
     <div class="save-status" id="save-status">Loading saved data…</div>
   </div>
@@ -156,6 +164,8 @@ input[type=text],input[type=number],select{padding:5px 8px;border:1px solid #ccc
   <button class="tb" onclick="showTab('generate')">📅 Generate</button>
   <button class="tb" onclick="showTab('preview')">📋 Preview</button>
   <button class="tb" onclick="showTab('saved')">🗂 Saved</button>
+  <button class="tb" id="tab-approvals" onclick="showTab('approvals')" style="display:none;">✅ Approvals</button>
+  <button class="tb" onclick="showTab('reconcile')">📊 Reconcile</button>
   <button class="tb" onclick="showTab('rules')">⚖ SK Rules</button>
   <button class="tb" onclick="showTab('chat')" style="background:#6D28D9;color:white;">💬 Ask AI</button>
 </div>
@@ -281,6 +291,7 @@ input[type=text],input[type=number],select{padding:5px 8px;border:1px solid #ccc
     Go to Generate and click Generate to build your schedule.
   </div>
   <div id="prev-content" style="display:none;">
+    <div id="approval-bar" class="card" style="display:none;border-left:4px solid #6B7280;"></div>
     <div class="card">
       <div class="sh">
         <div id="prev-title" style="font-weight:bold;color:#1F3864;font-size:15px;"></div>
@@ -371,6 +382,59 @@ input[type=text],input[type=number],select{padding:5px 8px;border:1px solid #ccc
 </div>
 
 <!-- ══ CHAT ══ -->
+<!-- ══ APPROVALS (owner only) ══ -->
+<div class="pnl" id="pnl-approvals">
+  <div class="card">
+    <div class="ct">✅ Schedule Approvals</div>
+    <div class="ibox" style="margin-bottom:12px;">
+      Schedules your manager submits for approval appear here. Open one to review every shift, then <strong>Approve</strong> it (unlocks printing &amp; posting) or <strong>Request Changes</strong> with a note. If your manager works on a different computer, use <strong>Import Approval Request</strong> below to load the file they send you.
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="btn" style="background:#fff;border:2px solid #0E7490;color:#0E7490;cursor:pointer;">
+        ⬆ Import Approval Request (from manager)
+        <input type="file" accept="application/json,.json" style="display:none;" onchange="importApprovalFile(this)">
+      </label>
+    </div>
+    <div id="approvals-list"></div>
+  </div>
+</div>
+
+<!-- ══ RECONCILE ══ -->
+<div class="pnl" id="pnl-reconcile">
+  <div class="card">
+    <div class="ct">📊 Reconcile Schedule vs QuickBooks Actuals</div>
+    <div class="ibox" style="margin-bottom:14px;">
+      Compare what you <strong>planned</strong> against what actually happened. Export an hours or payroll report from <strong>QuickBooks Time</strong> or <strong>QuickBooks Payroll</strong> as CSV, paste or upload it below, and this shows the variance per employee — hours, cost, and any overtime you didn't plan for.
+    </div>
+
+    <!-- Step 1: pick plan -->
+    <div style="margin-bottom:14px;">
+      <div style="font-weight:bold;color:#1F3864;font-size:13px;margin-bottom:6px;">Step 1 — Which month are you reconciling?</div>
+      <select id="recon-month" style="padding:7px 12px;font-size:13px;border:2px solid #2E74B5;border-radius:7px;color:#0000CC;font-weight:bold;" onchange="renderReconcile()"></select>
+    </div>
+
+    <!-- Step 2: paste/upload actuals -->
+    <div style="margin-bottom:14px;">
+      <div style="font-weight:bold;color:#1F3864;font-size:13px;margin-bottom:6px;">Step 2 — Paste your QuickBooks CSV (or upload)</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">
+        <textarea id="recon-csv" placeholder="Paste CSV here — e.g.&#10;Employee,Total Hours,Overtime,Total Pay&#10;Mike Smith,162,4,2835.00&#10;Sarah Lee,148,0,2516.00" rows="6"
+          style="flex:1;min-width:280px;padding:10px;font-family:monospace;font-size:12px;border:1px solid #ccc;border-radius:8px;resize:vertical;"></textarea>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label class="btn bb" style="cursor:pointer;justify-content:center;">
+            ⬆ Upload CSV
+            <input type="file" accept=".csv,text/csv" style="display:none;" onchange="loadReconCsvFile(this)">
+          </label>
+          <button class="btn bp" onclick="parseReconCsv()">Parse →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: mapping + results (rendered) -->
+    <div id="recon-mapping"></div>
+    <div id="recon-results"></div>
+  </div>
+</div>
+
 <!-- ══ SAVED SCHEDULES ══ -->
 <div class="pnl" id="pnl-saved">
   <div class="card">
@@ -564,15 +628,27 @@ function persistCurrentSchedule() {
   const store = loadSchedStore();
   const key = schedKeyFor(year, month);
   const totalCost = (schedule.wkResults||[]).reduce((a,w)=>a+(w.budUsed||0),0);
+  const prev = store[key] || {};
+  // Editing content invalidates a prior approval/submission → back to draft.
+  let status = prev.status || 'draft';
+  let approval = prev.approval || null;
+  if (status === 'approved' || status === 'pending') {
+    status = 'draft';
+    approval = approval ? {...approval, invalidatedAt: new Date().toISOString(), invalidatedReason: 'Schedule edited after ' + (prev.status==='approved'?'approval':'submission')} : null;
+  }
   store[key] = {
     year, month, budget,
     asgn,                                   // {empId:{dateKey:shift}} — pure JSON
     emps: emps.map(e=>({...e})),            // snapshot of roster used
     savedAt: new Date().toISOString(),
-    totalCost
+    totalCost,
+    status,
+    approval,
+    reconciliation: prev.reconciliation || null
   };
   writeSchedStore(store);
   renderSavedList();
+  updateApprovalUI();
 }
 
 // Rebuild a full schedule object from a saved record
@@ -630,7 +706,7 @@ function renderSavedList() {
     return;
   }
   el.innerHTML = `<div class="ox"><table>
-    <thead><tr><th>Month</th><th>Last Saved</th><th>Employees</th><th>Total Cost</th><th>Budget</th><th style="text-align:center;">Actions</th></tr></thead>
+    <thead><tr><th>Month</th><th>Status</th><th>Last Saved</th><th>Employees</th><th>Total Cost</th><th>Budget</th><th style="text-align:center;">Actions</th></tr></thead>
     <tbody>${keys.map(k=>{
       const s = store[k];
       const active = (s.emps||[]).filter(e=>{const n=(e.name||'').trim().toUpperCase();return n&&n!=='NA'&&n!=='N/A';}).length;
@@ -640,6 +716,7 @@ function renderSavedList() {
       const when = dt.toLocaleDateString('en-CA',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-CA',{hour:'numeric',minute:'2-digit'});
       return `<tr>
         <td style="font-weight:bold;color:#1F3864;">${MONTHS[s.month-1]} ${s.year}</td>
+        <td>${statusBadge(s.status||'draft')}</td>
         <td style="color:#666;font-size:12px;">${when}</td>
         <td style="text-align:center;">${active}</td>
         <td style="font-weight:bold;color:${over?'#C00':'#375623'};">$${cost.toLocaleString('en',{maximumFractionDigits:0})}</td>
@@ -701,6 +778,293 @@ function importAllData(input) {
     input.value = '';
   };
   reader.readAsText(file);
+}
+
+// ════════════════════════════════════════════════════════════════
+// ROLE + APPROVAL WORKFLOW
+// Two roles (Manager / Owner) stored locally. Works on a shared
+// computer via localStorage, or across devices via file handoff.
+// Business rule: only an APPROVED schedule can be printed / posted.
+// ════════════════════════════════════════════════════════════════
+const ROLE_KEY = 'ql_role';
+let currentRole = localStorage.getItem(ROLE_KEY) || 'manager';
+
+function setRole(role) {
+  currentRole = role;
+  localStorage.setItem(ROLE_KEY, role);
+  // Show/hide owner-only Approvals tab
+  const at = document.getElementById('tab-approvals');
+  if (at) at.style.display = (role === 'owner') ? '' : 'none';
+  updateApprovalUI();
+  renderSavedList();
+  if (role === 'owner') renderApprovalsList();
+  flash(role === 'owner' ? '👑 Owner mode — you can review & approve schedules.' : '👤 Manager mode.');
+}
+
+// Status helpers ------------------------------------------------------
+function getCurrentScheduleStatus() {
+  if (!schedule) return null;
+  const store = loadSchedStore();
+  const rec = store[schedKeyFor(schedule.year, schedule.month)];
+  return rec ? (rec.status || 'draft') : 'draft';
+}
+function getCurrentScheduleRecord() {
+  if (!schedule) return null;
+  const store = loadSchedStore();
+  return store[schedKeyFor(schedule.year, schedule.month)] || null;
+}
+function setScheduleStatus(key, status, extra) {
+  const store = loadSchedStore();
+  if (!store[key]) return;
+  store[key].status = status;
+  store[key].approval = {...(store[key].approval||{}), ...(extra||{})};
+  writeSchedStore(store);
+}
+
+const STATUS_META = {
+  draft:    {label:'Draft',            color:'#6B7280', bg:'#F3F4F6', icon:'✏️'},
+  pending:  {label:'Pending Approval', color:'#B45309', bg:'#FEF3C7', icon:'⏳'},
+  approved: {label:'Approved',         color:'#047857', bg:'#D1FAE5', icon:'✅'},
+  changes:  {label:'Changes Requested',color:'#B91C1C', bg:'#FEE2E2', icon:'✍️'}
+};
+function statusBadge(status) {
+  const m = STATUS_META[status] || STATUS_META.draft;
+  return `<span class="badge" style="background:${m.bg};color:${m.color};">${m.icon} ${m.label}</span>`;
+}
+
+// Manager: submit current schedule for approval -----------------------
+function submitForApproval() {
+  if (!schedule) { flash('⚠ Open a schedule first.'); return; }
+  const who = prompt("Submit this schedule for approval.\n\nYour name (so the owner knows who sent it):", "");
+  if (who === null) return;
+  const key = schedKeyFor(schedule.year, schedule.month);
+  setScheduleStatus(key, 'pending', {
+    submittedAt: new Date().toISOString(),
+    submittedBy: who || 'Manager',
+    reviewedAt: null, reviewedBy: null, decision: null, comments: null
+  });
+  updateApprovalUI();
+  renderSavedList();
+  // Offer to export a handoff file for a remote owner
+  if (confirm("✅ Marked as Pending Approval.\n\nIf your owner reviews on THIS computer, you're done — switch to Owner mode to approve.\n\nIf your owner is on a DIFFERENT computer, click OK to download an approval-request file to send them.")) {
+    exportApprovalRequest();
+  }
+  flash('⏳ Submitted for approval.');
+}
+
+// Owner: approve / request changes ------------------------------------
+function approveSchedule() {
+  if (!schedule) return;
+  const who = prompt("Approve this schedule.\n\nYour name (recorded on the approval):", "");
+  if (who === null) return;
+  const key = schedKeyFor(schedule.year, schedule.month);
+  setScheduleStatus(key, 'approved', {
+    reviewedAt: new Date().toISOString(), reviewedBy: who || 'Owner', decision: 'approved', comments: null
+  });
+  updateApprovalUI(); renderSavedList(); renderApprovalsList();
+  if (confirm("✅ Approved! The manager can now print & post it.\n\nIf the manager is on a DIFFERENT computer, click OK to download an approval-decision file to send back to them.")) {
+    exportApprovalDecision();
+  }
+  flash('✅ Schedule approved.');
+}
+function requestChanges() {
+  if (!schedule) return;
+  const note = prompt("Request changes — what needs to be fixed?\n\n(This note goes back to the manager.)", "");
+  if (note === null) return;
+  const who = prompt("Your name:", "") || 'Owner';
+  const key = schedKeyFor(schedule.year, schedule.month);
+  setScheduleStatus(key, 'changes', {
+    reviewedAt: new Date().toISOString(), reviewedBy: who, decision: 'changes', comments: note || '(no note)'
+  });
+  updateApprovalUI(); renderSavedList(); renderApprovalsList();
+  if (confirm("✍️ Changes requested.\n\nIf the manager is on a different computer, click OK to download a file to send back to them.")) {
+    exportApprovalDecision();
+  }
+  flash('✍️ Changes requested.');
+}
+
+// File handoff: manager → owner (request) -----------------------------
+function exportApprovalRequest() {
+  const rec = getCurrentScheduleRecord();
+  if (!rec) return;
+  downloadJson({
+    app:'MrLubeTires_Scheduler', kind:'approval_request', version:1,
+    key: schedKeyFor(schedule.year, schedule.month),
+    record: rec, exportedAt: new Date().toISOString()
+  }, 'ApprovalRequest_' + MONTHS[schedule.month-1] + schedule.year + '.json');
+}
+// File handoff: owner → manager (decision) ----------------------------
+function exportApprovalDecision() {
+  const rec = getCurrentScheduleRecord();
+  if (!rec) return;
+  downloadJson({
+    app:'MrLubeTires_Scheduler', kind:'approval_decision', version:1,
+    key: schedKeyFor(schedule.year, schedule.month),
+    record: rec, exportedAt: new Date().toISOString()
+  }, 'ApprovalDecision_' + MONTHS[schedule.month-1] + schedule.year + '.json');
+}
+function downloadJson(obj, filename) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Owner imports a manager's approval request --------------------------
+function importApprovalFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.app !== 'MrLubeTires_Scheduler' || !data.record) { alert('Not a valid approval file.'); input.value=''; return; }
+      const store = loadSchedStore();
+      const incoming = data.record;
+      const existing = store[data.key];
+      // Merge: bring in the submitted schedule for review
+      store[data.key] = {...incoming};
+      writeSchedStore(store);
+      flash('✅ Imported ' + MONTHS[incoming.month-1] + ' ' + incoming.year + ' for review.');
+      renderApprovalsList(); renderSavedList();
+      // Auto-open it for review
+      rehydrateSchedule(incoming); renderPreview(); showTab('preview');
+    } catch(err) { alert('Could not read that file.'); }
+    input.value = '';
+  };
+  r.readAsText(file);
+}
+// Manager imports the owner's decision --------------------------------
+function importApprovalDecisionFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.app !== 'MrLubeTires_Scheduler' || !data.record) { alert('Not a valid approval file.'); input.value=''; return; }
+      const store = loadSchedStore();
+      store[data.key] = {...data.record};
+      writeSchedStore(store);
+      const st = data.record.status;
+      flash(st==='approved' ? '✅ Owner approved this schedule!' : '✍️ Owner requested changes.');
+      renderSavedList();
+      rehydrateSchedule(data.record); renderPreview(); showTab('preview');
+    } catch(err) { alert('Could not read that file.'); }
+    input.value = '';
+  };
+  r.readAsText(file);
+}
+
+// Owner's pending-approvals list --------------------------------------
+function renderApprovalsList() {
+  const el = document.getElementById('approvals-list');
+  if (!el) return;
+  const store = loadSchedStore();
+  const keys = Object.keys(store).sort().reverse();
+  const pending = keys.filter(k => store[k].status === 'pending');
+  const others = keys.filter(k => store[k].status === 'approved' || store[k].status === 'changes');
+
+  if (pending.length === 0 && others.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:24px;color:#999;">Nothing submitted yet. When your manager submits a schedule (or you import their request file), it appears here.</div>';
+    return;
+  }
+  const row = (k, s) => {
+    const ap = s.approval || {};
+    const submitted = ap.submittedAt ? new Date(ap.submittedAt).toLocaleDateString('en-CA',{month:'short',day:'numeric'}) : '—';
+    return `<tr>
+      <td style="font-weight:bold;color:#1F3864;">${MONTHS[s.month-1]} ${s.year}</td>
+      <td>${statusBadge(s.status)}</td>
+      <td style="font-size:12px;color:#666;">${ap.submittedBy||'—'}<br><span style="color:#999;">${submitted}</span></td>
+      <td style="font-weight:bold;color:${(s.totalCost>s.budget*1.02)?'#C00':'#375623'};">$${(s.totalCost||0).toLocaleString('en',{maximumFractionDigits:0})}</td>
+      <td style="text-align:center;"><button class="btn bb" style="padding:5px 14px;font-size:12px;" onclick="openForReview('${k}')">Review →</button></td>
+    </tr>`;
+  };
+  let html = '';
+  if (pending.length) {
+    html += '<div style="font-weight:bold;color:#B45309;margin:4px 0 8px;">⏳ Awaiting your review</div>';
+    html += `<div class="ox"><table><thead><tr><th>Month</th><th>Status</th><th>Submitted by</th><th>Cost</th><th></th></tr></thead><tbody>${pending.map(k=>row(k,store[k])).join('')}</tbody></table></div>`;
+  }
+  if (others.length) {
+    html += '<div style="font-weight:bold;color:#666;margin:16px 0 8px;">Already reviewed</div>';
+    html += `<div class="ox"><table><thead><tr><th>Month</th><th>Status</th><th>Submitted by</th><th>Cost</th><th></th></tr></thead><tbody>${others.map(k=>row(k,store[k])).join('')}</tbody></table></div>`;
+  }
+  el.innerHTML = html;
+}
+function openForReview(key) {
+  const store = loadSchedStore();
+  const rec = store[key];
+  if (!rec) return;
+  rehydrateSchedule(rec);
+  renderPreview();
+  showTab('preview');
+  flash('Reviewing ' + MONTHS[rec.month-1] + ' ' + rec.year + ' — approve or request changes at the top.');
+}
+
+// The status/approval banner + action buttons shown in Preview --------
+function updateApprovalUI() {
+  const bar = document.getElementById('approval-bar');
+  if (!bar) return;
+  if (!schedule) { bar.style.display = 'none'; return; }
+  const rec = getCurrentScheduleRecord();
+  const status = rec ? (rec.status || 'draft') : 'draft';
+  const ap = rec ? (rec.approval || {}) : {};
+  const m = STATUS_META[status];
+  bar.style.display = 'block';
+
+  let history = '';
+  if (ap.submittedBy) history += `Submitted by ${ap.submittedBy}` + (ap.submittedAt?` on ${new Date(ap.submittedAt).toLocaleDateString('en-CA',{month:'short',day:'numeric'})}`:'') + '. ';
+  if (ap.reviewedBy)  history += `${status==='approved'?'Approved':'Reviewed'} by ${ap.reviewedBy}` + (ap.reviewedAt?` on ${new Date(ap.reviewedAt).toLocaleDateString('en-CA',{month:'short',day:'numeric'})}`:'') + '. ';
+  if (ap.comments && status==='changes') history += `Note: "${ap.comments}"`;
+
+  // Role-specific action buttons
+  let actions = '';
+  if (currentRole === 'manager') {
+    if (status === 'draft' || status === 'changes') {
+      actions = `<button class="btn bp" onclick="submitForApproval()">📨 Submit for Approval</button>`;
+    } else if (status === 'pending') {
+      actions = `<span style="font-size:12px;color:#B45309;">Waiting for owner. </span>
+        <label class="btn" style="background:#fff;border:1px solid #0E7490;color:#0E7490;cursor:pointer;font-size:12px;padding:6px 12px;">⬆ Import owner's decision
+          <input type="file" accept=".json,application/json" style="display:none;" onchange="importApprovalDecisionFile(this)"></label>`;
+    } else if (status === 'approved') {
+      actions = `<span style="font-size:12px;color:#047857;font-weight:bold;">Approved — you can print, post & share below. 🎉</span>`;
+    }
+  } else { // owner
+    if (status === 'pending') {
+      actions = `<button class="btn bg" onclick="approveSchedule()">✅ Approve</button>
+                 <button class="btn" style="background:#dc3545;color:white;" onclick="requestChanges()">✍️ Request Changes</button>`;
+    } else if (status === 'approved') {
+      actions = `<button class="btn" style="background:#dc3545;color:white;" onclick="requestChanges()">↩ Revoke / Request Changes</button>`;
+    } else if (status === 'draft' || status === 'changes') {
+      actions = `<span style="font-size:12px;color:#666;">Manager hasn't submitted this yet.</span>`;
+    }
+  }
+
+  bar.style.background = m.bg;
+  bar.style.borderColor = m.color;
+  bar.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div>
+        <span style="font-weight:bold;color:${m.color};font-size:14px;">${m.icon} ${m.label}</span>
+        ${history?`<div style="font-size:11px;color:#555;margin-top:3px;">${history}</div>`:''}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">${actions}</div>
+    </div>`;
+}
+
+// Whether printing/posting is allowed (approved only) -----------------
+function isApprovedNow() {
+  return getCurrentScheduleStatus() === 'approved';
+}
+function requireApproval(action) {
+  if (isApprovedNow()) return true;
+  const status = getCurrentScheduleStatus();
+  const msg = currentRole === 'owner'
+    ? `This schedule is "${STATUS_META[status].label}". Approve it first (button at the top of Preview), then you can ${action}.`
+    : `This schedule must be approved by the owner before you can ${action}.\n\nUse "Submit for Approval" at the top of the Preview tab.`;
+  alert('🔒 ' + msg);
+  return false;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -989,6 +1353,7 @@ function buildSchedule(year, month, budget){
 // ════════════════════════════════════════════════════════════════
 function printSchedule(){
   if(!schedule){alert('Generate a schedule first.');return;}
+  if(!requireApproval('print & post the schedule')) return;
   const{asgn,weeks,wkResults,hols,closed,year,month,emps}=schedule;
   const moName=MONTHS[month-1];
 
@@ -1457,6 +1822,7 @@ function renderPreview(){
   document.getElementById('prev-empty').style.display='none';
   document.getElementById('prev-content').style.display='block';
   populateLmcControls();
+  updateApprovalUI();
   const{asgn,weeks,wkResults,hols,closed,year,month,budget,emps}=schedule;
   const moName=MONTHS[month-1];
 
@@ -1890,6 +2256,7 @@ function buildShareText() {
 
 function shareSchedule() {
   if (!schedule) { flash('⚠ Open or generate a schedule first.'); return; }
+  if (!requireApproval('share the schedule with staff')) return;
   const text = buildShareText();
   const subject = `Mr. Lube + Tires — ${MONTHS[schedule.month-1]} ${schedule.year} Schedule`;
 
@@ -2112,16 +2479,315 @@ function showCopyFallback() {
 }
 
 // ════════════════════════════════════════════════════════════════
+// RECONCILIATION — compare planned schedule vs QuickBooks actuals (CSV)
+// ════════════════════════════════════════════════════════════════
+let reconParsed = null;   // { headers:[], rows:[[]] }
+let reconMap = null;      // { name, hours, ot, pay } -> column indices
+let reconMatch = null;    // { empId: csvRowIndex|null }
+
+function populateReconMonths() {
+  const sel = document.getElementById('recon-month');
+  if (!sel) return;
+  const store = loadSchedStore();
+  const keys = Object.keys(store).sort().reverse();
+  if (keys.length === 0) {
+    sel.innerHTML = '<option value="">No saved schedules — generate one first</option>';
+    return;
+  }
+  sel.innerHTML = keys.map(k=>{
+    const s = store[k];
+    return `<option value="${k}">${MONTHS[s.month-1]} ${s.year}</option>`;
+  }).join('');
+}
+
+// Robust CSV parser: handles quotes, commas-in-quotes, $ and commas in numbers
+function parseCSV(text) {
+  const rows = [];
+  let row = [], cur = '', inQ = false;
+  for (let i=0; i<text.length; i++) {
+    const c = text[i], nx = text[i+1];
+    if (inQ) {
+      if (c === '"' && nx === '"') { cur += '"'; i++; }
+      else if (c === '"') { inQ = false; }
+      else cur += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(cur); cur = ''; }
+      else if (c === '\r') { /* skip */ }
+      else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+      else cur += c;
+    }
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  // Drop fully-empty rows
+  return rows.filter(r => r.some(c => (c||'').trim() !== ''));
+}
+
+function numFromCell(v) {
+  if (v == null) return 0;
+  const n = parseFloat(String(v).replace(/[$,\s]/g,''));
+  return isNaN(n) ? 0 : n;
+}
+
+function loadReconCsvFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = e => { document.getElementById('recon-csv').value = e.target.result; parseReconCsv(); input.value=''; };
+  r.readAsText(file);
+}
+
+// Guess which column is which based on header keywords
+function guessColumns(headers) {
+  const h = headers.map(x=>(x||'').toLowerCase().trim());
+  // substring match for multi-char keywords
+  const find = (...keys) => { for (let i=0;i<h.length;i++) if (keys.some(k=>h[i].includes(k))) return i; return -1; };
+  // word-boundary match for short/ambiguous keywords (e.g. "ot" must not match "total")
+  const findWord = (...keys) => { for (let i=0;i<h.length;i++){ const words=h[i].split(/[^a-z.]+/); if (keys.some(k=>words.includes(k))) return i; } return -1; };
+  // OT: prefer explicit "overtime", else word-boundary "ot"/"o.t."
+  let ot = find('overtime','over time','o/t');
+  if (ot < 0) ot = findWord('ot','o.t.','o.t');
+  // Hours: prefer "regular/total hours", else any "hours"/"hrs"
+  let hours = find('total hours','reg hours','regular hours','hours worked','worked hours');
+  if (hours < 0) hours = find('hours','hrs');
+  return {
+    name:  find('employee','name','staff','worker','team member','full name'),
+    hours: hours,
+    ot:    ot,
+    pay:   find('total pay','gross pay','gross','total cost','net pay','amount','wages','earnings','pay')
+  };
+}
+
+function parseReconCsv() {
+  const text = document.getElementById('recon-csv').value.trim();
+  if (!text) { flash('⚠ Paste your QuickBooks CSV first.'); return; }
+  const rows = parseCSV(text);
+  if (rows.length < 2) { flash('⚠ That CSV needs a header row plus at least one data row.'); return; }
+  reconParsed = { headers: rows[0], rows: rows.slice(1) };
+  reconMap = guessColumns(reconParsed.headers);
+  // Auto-match employees by normalized name
+  autoMatchEmployees();
+  renderReconMapping();
+  renderReconcile();
+}
+
+function normName(s){ return (s||'').toLowerCase().replace(/[^a-z]/g,''); }
+
+function autoMatchEmployees() {
+  reconMatch = {};
+  if (!reconParsed || reconMap.name < 0) return;
+  const schedKey = document.getElementById('recon-month').value;
+  const store = loadSchedStore();
+  const rec = store[schedKey];
+  if (!rec) return;
+  const emps = (rec.emps||[]).filter(e=>{const n=(e.name||'').trim().toUpperCase();return n&&n!=='NA'&&n!=='N/A';});
+  emps.forEach(emp => {
+    const en = normName(emp.name);
+    let best = -1;
+    reconParsed.rows.forEach((r, idx) => {
+      const cn = normName(r[reconMap.name]);
+      if (!cn) return;
+      if (cn === en) best = idx;
+      else if (best<0 && (cn.includes(en) || en.includes(cn)) && en.length>2) best = idx;
+    });
+    reconMatch[emp.id] = best;
+  });
+}
+
+function renderReconMapping() {
+  const el = document.getElementById('recon-mapping');
+  if (!reconParsed) { el.innerHTML=''; return; }
+  const opts = (sel) => reconParsed.headers.map((h,i)=>`<option value="${i}" ${i===sel?'selected':''}>${h||('Column '+(i+1))}</option>`).join('');
+  el.innerHTML = `
+    <div class="card" style="background:#f8fafc;margin-top:8px;">
+      <div style="font-weight:bold;color:#1F3864;font-size:13px;margin-bottom:8px;">Step 3 — Confirm which column is which</div>
+      <div style="font-size:11px;color:#888;margin-bottom:10px;">We guessed based on your headers. Fix any that are wrong.</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;">
+        <div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px;">Employee name</label>
+          <select onchange="reconMap.name=parseInt(this.value);autoMatchEmployees();renderReconcile()" style="width:100%;padding:5px;border:1px solid #ccc;border-radius:5px;">${opts(reconMap.name)}</select></div>
+        <div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px;">Total hours worked</label>
+          <select onchange="reconMap.hours=parseInt(this.value);renderReconcile()" style="width:100%;padding:5px;border:1px solid #ccc;border-radius:5px;"><option value="-1">— none —</option>${opts(reconMap.hours)}</select></div>
+        <div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px;">Overtime hours (optional)</label>
+          <select onchange="reconMap.ot=parseInt(this.value);renderReconcile()" style="width:100%;padding:5px;border:1px solid #ccc;border-radius:5px;"><option value="-1">— none —</option>${opts(reconMap.ot)}</select></div>
+        <div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px;">Total pay / cost (optional)</label>
+          <select onchange="reconMap.pay=parseInt(this.value);renderReconcile()" style="width:100%;padding:5px;border:1px solid #ccc;border-radius:5px;"><option value="-1">— none —</option>${opts(reconMap.pay)}</select></div>
+      </div>
+    </div>`;
+}
+
+// Compute planned hours/cost per employee for the chosen month
+function plannedTotalsFor(rec) {
+  const out = {}; // empId -> {hours, cost}
+  const month = rec.month;
+  const emps = rec.emps || [];
+  emps.forEach(e => out[e.id] = {hours:0, cost:0, name:e.name, rate:e.rate, role:e.role, empType:e.empType});
+  Object.entries(rec.asgn||{}).forEach(([empId, days]) => {
+    const e = emps.find(x=>String(x.id)===String(empId));
+    if (!e) return;
+    Object.entries(days).forEach(([dk, s]) => {
+      // Only count days in the target month
+      const mo = parseInt(dk.split('-')[1]);
+      if (mo !== month) return;
+      out[e.id].hours += s.hrs || 0;
+      out[e.id].cost  += (s.cost != null ? s.cost : (e.rate * (s.hrs||0)));
+    });
+  });
+  return out;
+}
+
+function renderReconcile() {
+  const el = document.getElementById('recon-results');
+  const schedKey = document.getElementById('recon-month').value;
+  if (!schedKey) { el.innerHTML = '<div class="ebox" style="margin-top:10px;">No saved schedule selected.</div>'; return; }
+  const store = loadSchedStore();
+  const rec = store[schedKey];
+  if (!rec) { el.innerHTML=''; return; }
+  if (!reconParsed) { el.innerHTML=''; return; }
+
+  const planned = plannedTotalsFor(rec);
+  const emps = (rec.emps||[]).filter(e=>{const n=(e.name||'').trim().toUpperCase();return n&&n!=='NA'&&n!=='N/A';});
+
+  // Build per-employee comparison
+  let totPlanH=0, totActH=0, totPlanC=0, totActC=0, totOT=0;
+  const matchSel = (empId) => {
+    const cur = reconMatch?.[empId];
+    let opts = '<option value="-1">— not in CSV —</option>';
+    reconParsed.rows.forEach((r,idx)=>{
+      opts += `<option value="${idx}" ${idx===cur?'selected':''}>${r[reconMap.name]||('Row '+(idx+1))}</option>`;
+    });
+    return `<select onchange="reconMatch[${empId}]=parseInt(this.value);renderReconcile()" style="padding:3px 6px;font-size:11px;border:1px solid #ccc;border-radius:4px;">${opts}</select>`;
+  };
+
+  const rowsHtml = emps.map(emp => {
+    const p = planned[emp.id] || {hours:0,cost:0};
+    const ci = reconMatch?.[emp.id];
+    const hasActual = ci != null && ci >= 0;
+    const actH = hasActual && reconMap.hours>=0 ? numFromCell(reconParsed.rows[ci][reconMap.hours]) : 0;
+    const actOT = hasActual && reconMap.ot>=0 ? numFromCell(reconParsed.rows[ci][reconMap.ot]) : 0;
+    let actC = hasActual && reconMap.pay>=0 ? numFromCell(reconParsed.rows[ci][reconMap.pay]) : 0;
+    // If no pay column, estimate actual cost from hours × rate (+ OT at 1.5×)
+    let costEstimated = false;
+    if (hasActual && (reconMap.pay<0 || actC===0) && actH>0) {
+      const reg = Math.max(0, actH - actOT);
+      actC = reg*emp.rate + actOT*emp.rate*1.5;
+      costEstimated = true;
+    }
+    totPlanH+=p.hours; totActH+=actH; totPlanC+=p.cost; totActC+=actC; totOT+=actOT;
+
+    const hVar = actH - p.hours;
+    const cVar = actC - p.cost;
+    const hColor = Math.abs(hVar)<0.5 ? '#666' : hVar>0 ? '#C00' : '#047857';
+    const cColor = Math.abs(cVar)<1 ? '#666' : cVar>0 ? '#C00' : '#047857';
+    return `<tr>
+      <td style="font-weight:600;">${emp.name}<div style="font-size:10px;color:#999;">${emp.role} · ${emp.empType}</div></td>
+      <td style="font-size:11px;">${matchSel(emp.id)}</td>
+      <td style="text-align:right;">${p.hours.toFixed(1)}</td>
+      <td style="text-align:right;">${hasActual?actH.toFixed(1):'—'}</td>
+      <td style="text-align:right;font-weight:bold;color:${hColor};">${hasActual?(hVar>0?'+':'')+hVar.toFixed(1):'—'}</td>
+      <td style="text-align:right;color:${actOT>0?'#C00':'#999'};font-weight:${actOT>0?'bold':'normal'};">${hasActual?(actOT>0?'⚠ '+actOT.toFixed(1):'0'):'—'}</td>
+      <td style="text-align:right;">$${p.cost.toFixed(0)}</td>
+      <td style="text-align:right;">${hasActual?'$'+actC.toFixed(0)+(costEstimated?'*':''):'—'}</td>
+      <td style="text-align:right;font-weight:bold;color:${cColor};">${hasActual?(cVar>0?'+':'')+'$'+cVar.toFixed(0):'—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Unmatched CSV rows (people in QB not matched to a roster employee)
+  const matchedIdx = new Set(Object.values(reconMatch||{}).filter(v=>v!=null&&v>=0));
+  const unmatched = reconParsed.rows.map((r,i)=>i).filter(i=>!matchedIdx.has(i));
+
+  const hVarTot = totActH-totPlanH, cVarTot = totActC-totPlanC;
+  const budget = rec.budget||0;
+  const budgetVar = totActC - budget;
+
+  el.innerHTML = `
+    <div class="card" style="margin-top:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+        <div style="font-weight:bold;color:#1F3864;font-size:14px;">${MONTHS[rec.month-1]} ${rec.year} — Plan vs Actual</div>
+        <button class="btn" style="background:#6D28D9;color:white;padding:6px 14px;font-size:12px;" onclick="copyReconForClaude()">📋 Copy for AI insights</button>
+      </div>
+      <div class="sg" style="margin-bottom:12px;">
+        <div class="sb" style="border-left:4px solid #2E74B5;"><div class="sl">Planned Hours</div><div class="sv">${totPlanH.toFixed(0)}</div></div>
+        <div class="sb" style="border-left:4px solid #1F3864;"><div class="sl">Actual Hours</div><div class="sv">${totActH.toFixed(0)} <span style="font-size:12px;color:${hVarTot>0?'#C00':'#047857'};">(${hVarTot>0?'+':''}${hVarTot.toFixed(0)})</span></div></div>
+        <div class="sb" style="border-left:4px solid #B45309;"><div class="sl">Unplanned OT Hours</div><div class="sv" style="color:${totOT>0?'#C00':'#047857'};">${totOT.toFixed(0)}</div></div>
+        <div class="sb" style="border-left:4px solid #375623;"><div class="sl">Planned Cost</div><div class="sv">$${totPlanC.toLocaleString('en',{maximumFractionDigits:0})}</div></div>
+        <div class="sb" style="border-left:4px solid ${cVarTot>0?'#C00':'#047857'};"><div class="sl">Actual Cost</div><div class="sv">$${totActC.toLocaleString('en',{maximumFractionDigits:0})} <span style="font-size:12px;color:${cVarTot>0?'#C00':'#047857'};">(${cVarTot>0?'+':''}$${cVarTot.toFixed(0)})</span></div></div>
+        <div class="sb" style="border-left:4px solid ${budgetVar>0?'#C00':'#047857'};"><div class="sl">vs Budget ($${budget.toLocaleString('en',{maximumFractionDigits:0})})</div><div class="sv" style="color:${budgetVar>0?'#C00':'#047857'};">${budgetVar>0?'+':''}$${budgetVar.toFixed(0)}</div></div>
+      </div>
+      <div class="ox"><table style="font-size:12px;">
+        <thead><tr>
+          <th>Employee</th><th>Matched to (CSV)</th>
+          <th style="text-align:right;">Plan Hrs</th><th style="text-align:right;">Actual Hrs</th><th style="text-align:right;">Δ Hrs</th>
+          <th style="text-align:right;">OT</th>
+          <th style="text-align:right;">Plan $</th><th style="text-align:right;">Actual $</th><th style="text-align:right;">Δ $</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+        <tfoot><tr style="border-top:2px solid #1F3864;font-weight:bold;background:#f0f4f8;">
+          <td colspan="2">TOTAL</td>
+          <td style="text-align:right;">${totPlanH.toFixed(0)}</td>
+          <td style="text-align:right;">${totActH.toFixed(0)}</td>
+          <td style="text-align:right;color:${hVarTot>0?'#C00':'#047857'};">${hVarTot>0?'+':''}${hVarTot.toFixed(0)}</td>
+          <td style="text-align:right;color:${totOT>0?'#C00':'#047857'};">${totOT.toFixed(0)}</td>
+          <td style="text-align:right;">$${totPlanC.toFixed(0)}</td>
+          <td style="text-align:right;">$${totActC.toFixed(0)}</td>
+          <td style="text-align:right;color:${cVarTot>0?'#C00':'#047857'};">${cVarTot>0?'+':''}$${cVarTot.toFixed(0)}</td>
+        </tr></tfoot>
+      </table></div>
+      ${(reconMap.pay<0)?'<div style="font-size:11px;color:#888;margin-top:6px;">* Actual cost estimated from hours × pay rate (OT at 1.5×), since no pay column was mapped. Map a "Total Pay" column for exact figures.</div>':''}
+      ${unmatched.length?`<div class="wbox" style="margin-top:10px;"><strong>⚠ ${unmatched.length} CSV row(s) not matched to any employee</strong><p>${unmatched.map(i=>reconParsed.rows[i][reconMap.name]||('Row '+(i+1))).join(', ')} — use the dropdowns above to match them, or they may be former staff / different spellings.</p></div>`:''}
+    </div>`;
+
+  // stash for AI copy
+  window._reconSummary = {rec, totPlanH, totActH, totPlanC, totActC, totOT, budget, budgetVar};
+}
+
+function copyReconForClaude() {
+  const s = window._reconSummary;
+  if (!s) { flash('⚠ Run a reconciliation first.'); return; }
+  const rec = s.rec;
+  const emps = (rec.emps||[]).filter(e=>{const n=(e.name||'').trim().toUpperCase();return n&&n!=='NA'&&n!=='N/A';});
+  const planned = plannedTotalsFor(rec);
+  const L = [];
+  L.push(`I run a Mr. Lube + Tires shop. Here is my labor reconciliation for ${MONTHS[rec.month-1]} ${rec.year} — what I PLANNED in my schedule vs what ACTUALLY happened in QuickBooks. Please analyze it: where did we overspend, was overtime avoidable, who is over/under-utilized, and what should I change next month?`);
+  L.push('');
+  L.push(`BUDGET: $${s.budget.toFixed(0)}`);
+  L.push(`PLANNED TOTAL: ${s.totPlanH.toFixed(0)} hrs, $${s.totPlanC.toFixed(0)}`);
+  L.push(`ACTUAL TOTAL: ${s.totActH.toFixed(0)} hrs, $${s.totActC.toFixed(0)}`);
+  L.push(`VARIANCE: ${(s.totActH-s.totPlanH).toFixed(0)} hrs, $${(s.totActC-s.totPlanC).toFixed(0)} (${s.budgetVar>0?'OVER':'under'} budget by $${Math.abs(s.budgetVar).toFixed(0)})`);
+  L.push(`UNPLANNED OVERTIME: ${s.totOT.toFixed(0)} hrs`);
+  L.push('');
+  L.push('PER EMPLOYEE (plan → actual):');
+  emps.forEach(emp=>{
+    const p = planned[emp.id]||{hours:0,cost:0};
+    const ci = reconMatch?.[emp.id];
+    const has = ci!=null&&ci>=0;
+    const actH = has&&reconMap.hours>=0?numFromCell(reconParsed.rows[ci][reconMap.hours]):0;
+    const actOT = has&&reconMap.ot>=0?numFromCell(reconParsed.rows[ci][reconMap.ot]):0;
+    L.push(`- ${emp.name} (${emp.role}, ${emp.empType}, $${emp.rate}/hr): planned ${p.hours.toFixed(0)}h/$${p.cost.toFixed(0)} → actual ${has?actH.toFixed(0)+'h':'NO DATA'}${actOT>0?' incl '+actOT.toFixed(0)+'h OT':''}`);
+  });
+  const text = L.join('\n') + '\n\n=== MY QUESTION ===\n(type your question here, or just ask "what should I change next month?")';
+  navigator.clipboard.writeText(text).then(()=>{
+    flash('✅ Reconciliation copied — paste into Claude.ai');
+    alert('✅ Copied!\n\nOpen Claude.ai, paste, and ask for insights.');
+  }).catch(()=>{ window._claudePrompt=text; showCopyFallback(); });
+}
+
+// ════════════════════════════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════════════════════════════
-const TAB_KEYS = ['setup','timeoff','generate','preview','saved','rules','chat'];
 function showTab(id){
-  document.querySelectorAll('.tb').forEach((b,i)=>b.classList.toggle('on',TAB_KEYS[i]===id));
+  // Match each tab button by the id in its onclick (robust to hidden tabs / order)
+  document.querySelectorAll('.tb').forEach(b=>{
+    const m = (b.getAttribute('onclick')||'').match(/showTab\('(\w+)'\)/);
+    b.classList.toggle('on', m && m[1]===id);
+  });
   document.querySelectorAll('.pnl').forEach(p=>p.classList.remove('on'));
-  document.getElementById('pnl-'+id).classList.add('on');
+  const panel = document.getElementById('pnl-'+id);
+  if (panel) panel.classList.add('on');
   if (id==='timeoff') renderTimeOff();
   if (id==='generate') updateStats();
   if (id==='saved') renderSavedList();
+  if (id==='approvals') renderApprovalsList();
+  if (id==='reconcile') { populateReconMonths(); }
 }
 
 let _ft=null;
@@ -2147,6 +2813,11 @@ renderEmpTable();
 renderRevGrid();
 updateStats();
 renderSavedList(); // populate saved schedules list
+
+// Restore role mode + show owner tab if needed
+document.getElementById('role-select').value = currentRole;
+if (currentRole === 'owner') document.getElementById('tab-approvals').style.display = '';
+populateReconMonths();
 </script>
 </body>
 </html>
